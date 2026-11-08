@@ -13,5 +13,6 @@ import org.springframework.scheduling.annotation.EnableScheduling
 class Boot
 
 fun main(args: Array<String>) {
+    requireEnvironment(System.getenv())
     runApplication<Boot>(*args)
 }

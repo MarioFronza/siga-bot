@@ -52,6 +52,39 @@ Run the tests:
 ./gradlew test
 ```
 
+## Release
+
+After the build and tests pass, every push to `main` publishes `mariofronza/siga-bot:latest` and `:sha-<short>` to Docker Hub. Tagging `vX.Y.Z` also publishes `:X.Y.Z` and `:X.Y`.
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The workflow needs a `DOCKERHUB_USERNAME` variable and a `DOCKERHUB_TOKEN` secret in the repository settings.
+
+To roll back, run the previous `X.Y.Z` tag against the same database.
+
+## Running the published image
+
+The image needs the variables above plus `DATASOURCE_URL` pointing at Postgres. It listens on `8080` and reports health through `/health`, so `docker ps` shows `healthy` once it is up. Run a single instance, because the hourly job logs into SIGA for every student.
+
+```bash
+docker run -d --name siga-bot --restart unless-stopped --env-file .env \
+  -e DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/sigabot \
+  -p 8080:8080 mariofronza/siga-bot:latest
+```
+
+If a variable is missing, the container stops with `Missing required environment variables: ...`.
+
+To expose it over HTTPS, point a Cloudflare Tunnel route at `http://<host>:8080`.
+
+Back up and restore Postgres:
+
+```bash
+docker exec <db-container> pg_dump -U sigabot sigabot > siga-bot.sql
+docker exec -i <db-container> psql -U sigabot sigabot < siga-bot.sql
+```
+
 ## Endpoints
 
 Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes and refresh tokens last 1 year.

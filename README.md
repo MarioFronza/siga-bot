@@ -2,8 +2,6 @@
 
 A small bot that logs into [SIGA](https://siga.udesc.br) (UDESC's academic system) on behalf of a student, scrapes their semester grades, stores them, and sends a push notification when a new grade shows up. A background job re-checks every registered student every hour.
 
-SIGA passwords are stored encrypted (AES-GCM) and are only decrypted to log in.
-
 ## Technologies
 
 - Kotlin 2.4, Java 21

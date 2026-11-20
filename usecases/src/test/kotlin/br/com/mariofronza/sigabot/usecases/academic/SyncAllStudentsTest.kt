@@ -25,7 +25,7 @@ class SyncAllStudentsTest : FunSpec({
         every { users.findAllActive() } returns listOf(first, failing, last)
         every { syncStudentGrades(failing, any()) } throws IllegalStateException("SIGA rejected the login")
 
-        SyncAllStudents(users, syncStudentGrades)(period)
+        SyncAllStudents(users, syncStudentGrades)(SyncScope.Period(period))
 
         verify { syncStudentGrades(last, SyncScope.Period(period)) }
     }

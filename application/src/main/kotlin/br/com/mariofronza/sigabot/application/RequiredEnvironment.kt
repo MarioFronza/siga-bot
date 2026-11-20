@@ -7,8 +7,6 @@ private val REQUIRED_VARIABLES = listOf(
     "JWT_SECRET",
     "SECRETKEY",
     "ONESIGNAL_APIKEY",
-    "SIGA_YEAR",
-    "SIGA_TERM"
 )
 
 fun requireEnvironment(environment: Map<String, String>) {

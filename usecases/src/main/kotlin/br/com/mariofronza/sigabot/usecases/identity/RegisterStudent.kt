@@ -11,12 +11,18 @@ import br.com.mariofronza.sigabot.usecases.identity.port.InstitutionRepository
 import br.com.mariofronza.sigabot.usecases.identity.port.PasswordHasher
 import br.com.mariofronza.sigabot.usecases.identity.port.SecretCipher
 import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
+import br.com.mariofronza.sigabot.usecases.shared.TransactionRunner
+import java.time.Clock
 
 class RegisterStudent(
     private val users: UserRepository,
     private val institutions: InstitutionRepository,
     private val passwordHasher: PasswordHasher,
     private val secretCipher: SecretCipher,
+    private val syncQueue: SyncQueue,
+    private val transaction: TransactionRunner,
+    private val clock: Clock,
 ) {
 
     data class Command(val email: String, val password: String, val cpf: String, val sigaPassword: String)
@@ -36,6 +42,9 @@ class RegisterStudent(
             loginDigest = loginDigest,
             passwordCiphertext = secretCipher.encrypt(command.sigaPassword),
         )
-        return users.save(User.registerStudent(email, passwordHasher.hash(command.password), account))
+        val student = User.registerStudent(email, passwordHasher.hash(command.password), account)
+        return transaction.inTransaction {
+            users.save(student).also { syncQueue.enqueue(it.id, clock.instant()) }
+        }
     }
 }

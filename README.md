@@ -69,7 +69,7 @@ To roll back, run the previous `X.Y.Z` tag against the same database.
 
 ## Running the published image
 
-The image needs the variables above plus `DATASOURCE_URL` pointing at Postgres. It listens on `8080` and reports health through `/health`, so `docker ps` shows `healthy` once it is up. Run a single instance, because the hourly job logs into SIGA for every student.
+The image needs the variables above plus `DATASOURCE_URL` pointing at Postgres. It listens on `8080` and reports readiness through `/actuator/health/readiness`, which also checks the database, so `docker ps` shows `healthy` once it can serve.
 
 ```bash
 docker run -d --name siga-bot --restart unless-stopped --env-file .env \
@@ -82,6 +82,18 @@ docker run -d --name siga-bot --restart unless-stopped --env-file .env \
 If a variable is missing, the container stops with `Missing required environment variables: ...`.
 
 To expose it over HTTPS, point a Cloudflare Tunnel route at `http://<host>:8080`.
+
+## Grade sync
+
+Every student has a row in `sync_jobs` with the time of their next sync. Every 30 seconds each instance claims up to 8 due jobs with `FOR UPDATE SKIP LOCKED` and a 10-minute lease, then syncs them in parallel on virtual threads. Running several instances is safe, because a job claimed by one is invisible to the others until its lease ends.
+
+- A successful sync schedules the next one an hour later, which spreads the load across the hour instead of hitting SIGA at the top of it.
+- A failed sync retries after 5 minutes, doubling up to 6 hours, and keeps the error in `last_error`.
+- A new student is synced within a minute of signing up.
+
+Pushes go through an outbox. New-grade and admin messages are written in the same transaction as the data they describe. Every 10 seconds each instance claims up to 50 pending pushes with `FOR UPDATE SKIP LOCKED` and a 5-minute lease, so two instances never send the same push. A failed push retries after 30 seconds, doubling up to an hour, for up to 10 attempts (about 4.5 hours). A OneSignal outage no longer loses pushes, and nothing is sent for data that was rolled back. Delivery is at least once: a crash between OneSignal accepting a push and marking it delivered sends it again.
+
+Prometheus metrics: `siga_sync_duration_seconds`, `siga_sync_failures_total{reason}`, `siga_sync_queue_due` and `siga_outbox_pending`.
 
 ## Database
 
@@ -112,7 +124,8 @@ Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `ap
 
 | Route | Access | Purpose |
 |---|---|---|
-| `GET /health` | public | container health check, outside the versioned API |
+| `GET /actuator/health/liveness`, `/actuator/health/readiness` | public | container probes, outside the versioned API |
+| `GET /actuator/prometheus` | public | metrics for Prometheus |
 | `POST /api/v1/users` | public | sign up |
 | `POST /api/v1/sessions` | public | log in |
 | `POST /api/v1/sessions/refresh` | public | trade a refresh token for new tokens |

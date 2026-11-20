@@ -17,6 +17,8 @@ dependencies {
     implementation(project(":infrastructure"))
     implementation(kotlin("reflect"))
     implementation("org.springframework.boot:spring-boot-starter")
+    runtimeOnly("org.springframework.boot:spring-boot-starter-actuator")
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
     testImplementation("com.lemonappdev:konsist:0.18.1")
 }

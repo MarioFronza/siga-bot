@@ -1,0 +1,60 @@
+package br.com.mariofronza.sigabot.usecases.academic
+
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncObserver
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
+import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
+import org.slf4j.LoggerFactory
+import java.time.Clock
+import java.time.Duration
+import java.util.concurrent.Executors
+
+class RunDueSyncs(
+    private val queue: SyncQueue,
+    private val users: UserRepository,
+    private val syncStudentGrades: SyncStudentGrades,
+    private val observer: SyncObserver,
+    private val clock: Clock,
+    private val settings: Settings = Settings(),
+) {
+
+    data class Settings(
+        val interval: Duration = Duration.ofHours(1),
+        val concurrency: Int = 8,
+        val lease: Duration = Duration.ofMinutes(10),
+        val firstRetry: Duration = Duration.ofMinutes(5),
+        val maxRetry: Duration = Duration.ofHours(6),
+    )
+
+    operator fun invoke(scope: SyncScope): Int {
+        val jobs = queue.claimDue(clock.instant(), settings.concurrency, settings.lease)
+        Executors.newVirtualThreadPerTaskExecutor().use { executor ->
+            jobs.map { executor.submit { run(it, scope) } }.forEach { it.get() }
+        }
+        return jobs.size
+    }
+
+    private fun run(job: SyncJob, scope: SyncScope) {
+        val started = clock.instant()
+        try {
+            val student = checkNotNull(users.findById(job.userId)) { "User ${job.userId} is gone" }
+            syncStudentGrades(student, scope)
+            observer.synced(Duration.between(started, clock.instant()))
+            queue.completed(job.userId, clock.instant().plus(settings.interval))
+        } catch (e: Exception) {
+            logger.warn("Sync failed for user {} (attempt {})", job.userId, job.attempts + 1, e)
+            observer.failed(e)
+            queue.failed(job.userId, e.message ?: e.javaClass.simpleName, clock.instant().plus(retryDelay(job.attempts + 1)))
+        }
+    }
+
+    internal fun retryDelay(attempt: Int): Duration {
+        val doublings = (attempt - 1).coerceIn(0, 20)
+        return settings.firstRetry.multipliedBy(1L shl doublings).coerceAtMost(settings.maxRetry)
+    }
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(RunDueSyncs::class.java)
+    }
+}

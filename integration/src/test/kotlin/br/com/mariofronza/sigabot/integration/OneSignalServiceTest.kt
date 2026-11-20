@@ -45,3 +45,15 @@ class OneSignalServiceTest : FunSpec({
         server.takeRequest()
     }
 })
+
+class OneSignalTimeoutTest : FunSpec({
+
+    test("gives up on a OneSignal that does not answer in time, so the outbox retries") {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("{}").setHeadersDelay(2, java.util.concurrent.TimeUnit.SECONDS))
+            val oneSignal = OneSignalService("key", server.url("/api/v1/notifications/").toString(), callTimeout = java.time.Duration.ofMillis(300))
+
+            shouldThrow<java.io.InterruptedIOException> { oneSignal.sendMessageToUser("user-1", "oi") }
+        }
+    }
+})

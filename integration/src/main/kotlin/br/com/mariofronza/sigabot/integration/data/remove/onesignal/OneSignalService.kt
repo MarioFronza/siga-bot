@@ -5,6 +5,7 @@ import br.com.mariofronza.sigabot.integration.retrofit.connector.Connector
 import br.com.mariofronza.sigabot.integration.retrofit.connector.OneSignalConnector
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Duration
 
 @Service
 class OneSignalService(
@@ -12,9 +13,10 @@ class OneSignalService(
     private val restApiKey: String,
     @param:Value("\${onesignal.base-url:https://onesignal.com/api/v1/notifications/}")
     baseUrl: String,
+    callTimeout: Duration = Duration.ofSeconds(10),
 ) {
 
-    private val oneSignalConnector: OneSignalConnector = Connector().createConnection(baseUrl)
+    private val oneSignalConnector: OneSignalConnector = Connector().createConnection(baseUrl, callTimeout)
     private val headers = mapOf(
         "Authorization" to "Basic $restApiKey",
     )

@@ -16,7 +16,7 @@ class AuthService(
         return mapOf(
             "accessToken" to jwtUtil.generateAccessToken(user, requestUrl),
             "refreshToken" to jwtUtil.generateRefreshToken(user, requestUrl),
-            "userId" to user.toUser().requireExternalId().toString()
+            "userId" to user.toUser().id.toString()
         )
     }
 }

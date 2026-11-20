@@ -20,7 +20,7 @@ class BackgroundRetrieveService(
     }
 
     private fun retrieve(user: User, year: Int, term: Int): Boolean = try {
-        logger.debug("Retrieving user {}", user.externalId)
+        logger.debug("Retrieving user {}", user.id)
         retrieveService.retrieveForUser(
             retrieveInput = RetrieveInput(
                 year = year,
@@ -30,7 +30,7 @@ class BackgroundRetrieveService(
         )
         true
     } catch (e: Exception) {
-        logger.warn("Retrieve failed for user {}", user.externalId, e)
+        logger.warn("Retrieve failed for user {}", user.id, e)
         false
     }
 

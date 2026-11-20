@@ -1,5 +1,9 @@
 package br.com.mariofronza.sigabot.persistence
 
+import br.com.mariofronza.sigabot.entity.user.Email
+import br.com.mariofronza.sigabot.entity.enrollment.Attendance
+import br.com.mariofronza.sigabot.entity.enrollment.Grade
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.course.Course
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.notification.Notification
@@ -83,7 +87,7 @@ class RepositoryInteractorsTest : FunSpec() {
     ) = users.save(
         User(
             isActive = true,
-            email = email,
+            email = Email.of(email),
             passwordHash = "hash",
             roles = listOf(roles.findByName("STUDENT").shouldNotBeNull()),
             academicAccounts = listOf(
@@ -99,7 +103,7 @@ class RepositoryInteractorsTest : FunSpec() {
 
     private fun enroll(user: User, year: Int, term: Int): Enrollment {
         val course = courses.save(Course(institution = udesc(), name = "Engenharia de Software $year/$term"))
-        val academicTerm = academicTerms.save(AcademicTerm(institution = udesc(), year = year, term = term))
+        val academicTerm = academicTerms.save(AcademicTerm(institution = udesc(), period = AcademicPeriod(year, term)))
         val classSection = classSections.save(ClassSection(code = "ESO-1", course = course, academicTerm = academicTerm))
         val subject = subjects.save(Subject(institution = udesc(), name = "Banco de Dados $year/$term"))
         val offering = subjectOfferings.save(SubjectOffering(subject = subject, classSection = classSection, courseLoad = 72))
@@ -107,9 +111,9 @@ class RepositoryInteractorsTest : FunSpec() {
             Enrollment(
                 user = user,
                 subjectOffering = offering,
-                finalGrade = 8.5,
+                finalGrade = Grade(8.5),
                 absences = 2,
-                attendancePercentage = 95.0,
+                attendance = Attendance(95.0),
                 result = "Aprovado",
             )
         )
@@ -119,15 +123,15 @@ class RepositoryInteractorsTest : FunSpec() {
         extension(SpringExtension())
 
         test("generates a time-ordered external id for a new user") {
-            newUser().externalId.shouldNotBeNull().version() shouldBe 7
+            newUser().id.value.version() shouldBe 7
         }
 
         test("loads a user with roles and academic accounts") {
             val saved = newUser(digest = byteArrayOf(4, 5, 6))
 
-            val loaded = users.findByEmail("student@test.com").shouldNotBeNull()
+            val loaded = users.findByEmail(Email.of("student@test.com")).shouldNotBeNull()
 
-            loaded.externalId shouldBe saved.externalId
+            loaded.id shouldBe saved.id
             loaded.roles.map { it.name } shouldBe listOf("STUDENT")
             loaded.academicAccounts.single().loginDigest shouldBe byteArrayOf(4, 5, 6)
             loaded.academicAccounts.single().loginCiphertext shouldBe "login"
@@ -138,7 +142,7 @@ class RepositoryInteractorsTest : FunSpec() {
             val saved = newUser()
             users.save(saved.copy(fullName = "Ana Souza", isActive = false))
 
-            val loaded = users.findByExternalId(saved.externalId.shouldNotBeNull()).shouldNotBeNull()
+            val loaded = users.findById(saved.id).shouldNotBeNull()
             loaded.fullName shouldBe "Ana Souza"
             loaded.isActive shouldBe false
         }
@@ -147,7 +151,7 @@ class RepositoryInteractorsTest : FunSpec() {
             val active = newUser()
             users.save(newUser(digest = byteArrayOf(7), email = "gone@test.com").copy(isActive = false))
 
-            users.findAllActive().map { it.externalId } shouldBe listOf(active.externalId)
+            users.findAllActive().map { it.id } shouldBe listOf(active.id)
         }
 
         test("finds the catalog rows of a term") {
@@ -156,7 +160,7 @@ class RepositoryInteractorsTest : FunSpec() {
             val section = offering.classSection
 
             courses.findByName(udesc(), section.course.name).shouldNotBeNull().id shouldBe section.course.id
-            academicTerms.findByYearAndTerm(udesc(), 2026, 1).shouldNotBeNull().id shouldBe section.academicTerm.id
+            academicTerms.findByPeriod(udesc(), AcademicPeriod(2026, 1)).shouldNotBeNull().id shouldBe section.academicTerm.id
             classSections.find("ESO-1", section.course, section.academicTerm).shouldNotBeNull().id shouldBe section.id
             subjectOfferings.find(offering.subject, section).shouldNotBeNull().courseLoad shouldBe 72
         }
@@ -166,12 +170,12 @@ class RepositoryInteractorsTest : FunSpec() {
             enroll(user, 2026, 1)
             enroll(user, 2026, 2)
 
-            val enrollment = enrollments.findAll(user, 2026, 1).single()
+            val enrollment = enrollments.findAll(user, AcademicPeriod(2026, 1)).single()
             enrollment.subjectOffering.subject.name shouldBe "Banco de Dados 2026/1"
             enrollment.subjectOffering.classSection.code shouldBe "ESO-1"
-            enrollment.subjectOffering.classSection.academicTerm.term shouldBe 1
-            enrollment.finalGrade shouldBe 8.5
-            enrollment.attendancePercentage shouldBe 95.0
+            enrollment.subjectOffering.classSection.academicTerm.period.term shouldBe 1
+            enrollment.finalGrade shouldBe Grade(8.5)
+            enrollment.attendance shouldBe Attendance(95.0)
         }
 
         test("finds an academic account by its login digest within the institution") {
@@ -217,15 +221,15 @@ class RepositoryInteractorsTest : FunSpec() {
             enroll(user, 2026, 1)
             enroll(user, 2026, 2)
 
-            academicTerms.findAllEnrolledBy(user).map { it.year to it.term } shouldBe listOf(2026 to 2, 2026 to 1)
+            academicTerms.findAllEnrolledBy(user).map { it.period.year to it.period.term } shouldBe listOf(2026 to 2, 2026 to 1)
         }
 
         test("updates the grade of an existing enrollment") {
             val user = newUser()
             val enrollment = enroll(user, 2026, 1)
-            enrollments.save(enrollment.copy(finalGrade = 9.75))
+            enrollments.save(enrollment.copy(finalGrade = Grade(9.75)))
 
-            enrollments.find(user, enrollment.subjectOffering).shouldNotBeNull().finalGrade shouldBe 9.75
+            enrollments.find(user, enrollment.subjectOffering).shouldNotBeNull().finalGrade shouldBe Grade(9.75)
         }
     }
 }

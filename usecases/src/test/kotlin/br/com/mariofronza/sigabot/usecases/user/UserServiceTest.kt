@@ -15,7 +15,6 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
-import java.util.UUID
 
 class UserServiceTest : FunSpec({
 
@@ -35,7 +34,7 @@ class UserServiceTest : FunSpec({
         every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
         every { secretCipher.encrypt(any()) } returns "encrypted"
         every { secretCipher.digest(any()) } returns byteArrayOf(1)
-        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured.copy(id = 1, externalId = UUID.randomUUID()) }
+        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured }
 
         UserService(userInteractor, roleService, institutionInteractor, academicAccountInteractor, { "hashed-$it" }, secretCipher)
             .createUser(
@@ -49,8 +48,8 @@ class UserServiceTest : FunSpec({
         savedUser.captured.roles.map { it.name } shouldBe listOf("STUDENT")
     }
 
-    test("answers with the public external id instead of the internal one") {
-        val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
+    test("answers with the id the domain gave the new user") {
+        val savedUser = slot<User>()
         val userInteractor: UserInteractor = mockk()
         val roleService: RoleService = mockk()
         val institutionInteractor: InstitutionInteractor = mockk()
@@ -63,7 +62,7 @@ class UserServiceTest : FunSpec({
         every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
         every { secretCipher.encrypt(any()) } returns "encrypted"
         every { secretCipher.digest(any()) } returns byteArrayOf(1)
-        every { userInteractor.save(any()) } answers { firstArg<User>().copy(id = 1, externalId = externalId) }
+        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured }
 
         val output = UserService(userInteractor, roleService, institutionInteractor, academicAccountInteractor, { "hashed-$it" }, secretCipher)
             .createUser(
@@ -74,7 +73,7 @@ class UserServiceTest : FunSpec({
                 )
             )
 
-        output.id shouldBe externalId
+        output.id shouldBe savedUser.captured.id.value
     }
 
     test("rejects a sign-up whose CPF is already registered") {

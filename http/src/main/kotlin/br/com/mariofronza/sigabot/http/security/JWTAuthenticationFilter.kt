@@ -46,7 +46,7 @@ class JWTAuthenticationFilter(
         val tokenMap = mapOf(
             "accessToken" to accessToken,
             "refreshToken" to refreshToken,
-            "userId" to user.toUser().requireExternalId().toString()
+            "userId" to user.toUser().id.toString()
         )
 
         jacksonObjectMapper().writeValue(response.outputStream, tokenMap)
@@ -64,7 +64,7 @@ class UserDetailsImpl(private val user: User) : UserDetails {
 
     override fun isEnabled() = true
 
-    override fun getUsername() = user.email
+    override fun getUsername() = user.email.value
 
     override fun isCredentialsNonExpired() = true
 

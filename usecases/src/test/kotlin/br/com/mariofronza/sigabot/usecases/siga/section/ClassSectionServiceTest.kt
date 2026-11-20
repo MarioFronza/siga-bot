@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.siga.section
 
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.course.Course
 import br.com.mariofronza.sigabot.entity.institution.Institution
 import br.com.mariofronza.sigabot.entity.section.ClassSection
@@ -15,8 +16,8 @@ class ClassSectionServiceTest : FunSpec({
     test("creates a new class section when the same code exists only in another academic term") {
         val udesc = Institution(id = 1, code = "udesc", name = "UDESC", gradeScaleMax = 10.0)
         val course = Course(id = 1, institution = udesc, name = "Engenharia de Software")
-        val firstTerm = AcademicTerm(id = 1, institution = udesc, year = 2026, term = 1)
-        val secondTerm = AcademicTerm(id = 2, institution = udesc, year = 2026, term = 2)
+        val firstTerm = AcademicTerm(id = 1, institution = udesc, period = AcademicPeriod(2026, 1))
+        val secondTerm = AcademicTerm(id = 2, institution = udesc, period = AcademicPeriod(2026, 2))
         val stored = mutableListOf(ClassSection(id = 1, code = "ESO-1", course = course, academicTerm = firstTerm))
         val classSectionInteractor: ClassSectionInteractor = mockk()
         every { classSectionInteractor.find(any(), any(), any()) } answers {

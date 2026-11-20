@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.persistence.notification.gateway
 
+import br.com.mariofronza.sigabot.persistence.user.gateway.userKey
 import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.entity.notification.Notification
 import br.com.mariofronza.sigabot.entity.user.User
@@ -20,7 +21,7 @@ class NotificationRepositoryInteractor(
 ) : NotificationInteractor {
 
     override fun findByUser(user: User, pageable: Pageable): Page<Notification> {
-        val ofUser = NOTIFICATIONS.USER_ID.eq(user.id)
+        val ofUser = NOTIFICATIONS.USER_ID.eq(userKey(user.id))
         val notifications = dsl.selectFrom(NOTIFICATIONS)
             .where(ofUser)
             .orderBy(NOTIFICATIONS.CREATED_AT.desc(), NOTIFICATIONS.ID.desc())
@@ -32,7 +33,7 @@ class NotificationRepositoryInteractor(
 
     override fun save(notification: Notification): Notification {
         val saved = dsl.insertInto(NOTIFICATIONS)
-            .set(NOTIFICATIONS.USER_ID, notification.user.id)
+            .set(NOTIFICATIONS.USER_ID, userKey(notification.user.id))
             .set(NOTIFICATIONS.MESSAGE, notification.message)
             .returning(NOTIFICATIONS.ID, NOTIFICATIONS.CREATED_AT)
             .fetchSingle()

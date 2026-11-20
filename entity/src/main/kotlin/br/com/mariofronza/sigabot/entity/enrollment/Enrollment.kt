@@ -7,8 +7,8 @@ data class Enrollment(
     val id: Long? = null,
     val user: User,
     val subjectOffering: SubjectOffering,
-    val finalGrade: Double,
+    val finalGrade: Grade,
     val absences: Int,
-    val attendancePercentage: Double,
+    val attendance: Attendance,
     val result: String,
 )

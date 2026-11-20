@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.institution.Institution
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
@@ -45,7 +46,7 @@ class RetrieveService(
     ): List<AcademicTermOutput> {
         var user = currentUser
 
-        logger.debug("Retrieving SIGA results for user {}", user.externalId)
+        logger.debug("Retrieving SIGA results for user {}", user.id)
 
         val account = user.academicAccounts.first { it.institution.code == Institution.UDESC }
         val institution = account.institution
@@ -59,8 +60,7 @@ class RetrieveService(
         val academicTerms = mutableListOf<AcademicTerm>()
 
         semesterResultsList.semesterResultsPeriod.map { semesterResults ->
-            val (year, term) = parseAcademicTerm(semesterResults.period)
-            val academicTerm = academicTermService.findOrCreate(institution, year, term)
+            val academicTerm = academicTermService.findOrCreate(institution, AcademicPeriod.parse(semesterResults.period))
             academicTerms.add(academicTerm)
 
             semesterResults.semesterResults.map {
@@ -69,7 +69,7 @@ class RetrieveService(
                 val subjectOffering = subjectOfferingService.findOrCreate(subject, classSection, it.courseLoad)
 
                 if (enrollmentService.hasGradeChanged(user, subjectOffering, it)) {
-                    logger.info("New grade for user {} in {}", user.externalId, subject.name)
+                    logger.info("New grade for user {} in {}", user.id, subject.name)
                     notifyWatchers(user, subject.name)
                 }
 
@@ -81,14 +81,9 @@ class RetrieveService(
         return academicTerms.map(AcademicTermOutput::from)
     }
 
-    private fun parseAcademicTerm(text: String): Pair<Int, Int> {
-        val (year, term) = text.split("/")
-        return Pair(year.toInt(), term.toInt())
-    }
-
     private fun notifyWatchers(user: User, subjectName: String) {
         val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
-        socketNotification.notifyUser(user.requireExternalId(), message)
+        socketNotification.notifyUser(user.id, message)
     }
 
     private fun generateSigaCredentialInput(account: AcademicAccount): SigaCredentialInput {

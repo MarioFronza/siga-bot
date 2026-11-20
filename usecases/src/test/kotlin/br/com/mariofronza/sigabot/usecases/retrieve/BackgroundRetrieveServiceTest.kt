@@ -1,5 +1,7 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
+import br.com.mariofronza.sigabot.entity.user.UserId
+import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.user.UserService
 import io.kotest.core.spec.style.FunSpec
@@ -10,9 +12,9 @@ import io.mockk.verify
 class BackgroundRetrieveServiceTest : FunSpec({
 
     fun student(id: Long) = User(
-        id = id,
+        id = UserId.generate(),
         isActive = true,
-        email = "student$id@test.com",
+        email = Email.of("student$id@test.com"),
         passwordHash = "hash",
         roles = emptyList(),
         academicAccounts = emptyList(),

@@ -1,5 +1,10 @@
 package br.com.mariofronza.sigabot.http
 
+import br.com.mariofronza.sigabot.entity.user.UserId
+import br.com.mariofronza.sigabot.entity.user.Email
+import br.com.mariofronza.sigabot.entity.enrollment.Attendance
+import br.com.mariofronza.sigabot.entity.enrollment.Grade
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.course.Course
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.institution.Institution
@@ -79,11 +84,10 @@ class ApiTest : FunSpec() {
 
     private fun signedIn(vararg roles: String): User {
         val user = User(
-            id = 1,
-            externalId = externalId,
+            id = UserId(externalId),
             isActive = true,
             fullName = "Ana Souza",
-            email = "ana@test.com",
+            email = Email.of("ana@test.com"),
             passwordHash = passwordHash,
             roles = roles.map { Role(name = it) },
             academicAccounts = emptyList(),
@@ -102,14 +106,14 @@ class ApiTest : FunSpec() {
     }
 
     private fun enrollment(user: User): Enrollment {
-        val term = AcademicTerm(institution = udesc, year = 2026, term = 1)
+        val term = AcademicTerm(institution = udesc, period = AcademicPeriod(2026, 1))
         val section = ClassSection(code = "ESO-1", course = Course(institution = udesc, name = "ESO"), academicTerm = term)
         return Enrollment(
             user = user,
             subjectOffering = SubjectOffering(subject = Subject(institution = udesc, name = "Banco de Dados"), classSection = section, courseLoad = 72),
-            finalGrade = 8.5,
+            finalGrade = Grade(8.5),
             absences = 2,
-            attendancePercentage = 95.0,
+            attendance = Attendance(95.0),
             result = "Aprovado",
         )
     }
@@ -217,8 +221,8 @@ class ApiTest : FunSpec() {
         test("lists the terms the student is enrolled in") {
             val user = signedIn("STUDENT")
             every { academicTermService.findAllEnrolledBy(user) } returns listOf(
-                AcademicTerm(institution = udesc, year = 2026, term = 2),
-                AcademicTerm(institution = udesc, year = 2026, term = 1),
+                AcademicTerm(institution = udesc, period = AcademicPeriod(2026, 2)),
+                AcademicTerm(institution = udesc, period = AcademicPeriod(2026, 1)),
             )
 
             mockMvc.get("/api/v1/me/terms") { bearer(user) }.andExpect {
@@ -231,7 +235,7 @@ class ApiTest : FunSpec() {
 
         test("lists the enrollments of a term") {
             val user = signedIn("STUDENT")
-            every { enrollmentService.findAll(user, 2026, 1) } returns listOf(enrollment(user))
+            every { enrollmentService.findAll(user, AcademicPeriod(2026, 1)) } returns listOf(enrollment(user))
 
             mockMvc.get("/api/v1/me/terms/2026/1/enrollments") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -309,7 +313,7 @@ class ApiTest : FunSpec() {
 
         test("lets admins notify one user") {
             val user = signedIn("ADMIN")
-            every { notificationService.createNotificationToUser(externalId, "Oi") } returns
+            every { notificationService.createNotificationToUser(UserId(externalId), "Oi") } returns
                 NotificationOutput(7, "Oi", Instant.parse("2026-11-20T12:00:00Z"))
 
             mockMvc.post("/api/v1/users/$externalId/notifications") { bearer(user); json("""{"message":"Oi"}""") }
@@ -321,7 +325,7 @@ class ApiTest : FunSpec() {
 
         test("answers 404 when notifying an unknown user") {
             val user = signedIn("ADMIN")
-            val unknown = UUID.randomUUID()
+            val unknown = UserId.generate()
             every { notificationService.createNotificationToUser(unknown, "Oi") } throws UserNotFoundException(unknown)
 
             mockMvc.post("/api/v1/users/$unknown/notifications") { bearer(user); json("""{"message":"Oi"}""") }

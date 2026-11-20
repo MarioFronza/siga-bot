@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.http.config
 
+import org.springframework.http.HttpStatus.BAD_REQUEST
 import br.com.mariofronza.sigabot.usecases.user.AcademicAccountAlreadyRegisteredException
 import br.com.mariofronza.sigabot.usecases.user.EmailAlreadyRegisteredException
 import br.com.mariofronza.sigabot.usecases.user.UserNotFoundException
@@ -20,6 +21,9 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(UserNotFoundException::class)
     fun notFound(e: UserNotFoundException): ProblemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, e.message)
+
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun badRequest(e: IllegalArgumentException): ProblemDetail = ProblemDetail.forStatusAndDetail(BAD_REQUEST, e.message)
 
     @ExceptionHandler(JWTVerificationException::class)
     fun unauthorized(): ProblemDetail = ProblemDetail.forStatusAndDetail(UNAUTHORIZED, "Invalid refresh token")

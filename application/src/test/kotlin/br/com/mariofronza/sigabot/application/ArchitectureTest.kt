@@ -10,7 +10,7 @@ class ArchitectureTest : FunSpec({
     val root = "br.com.mariofronza.sigabot"
     val adapters = listOf("persistence", "extraction", "http", "integration", "infrastructure")
 
-    fun module(name: String) = Konsist.scopeFromModule(name)
+    fun module(name: String) = Konsist.scopeFromProduction(moduleName = name)
 
     test("the domain depends on nothing but the language") {
         module("entity").imports.assertTrue { import ->

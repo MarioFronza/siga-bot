@@ -1,9 +1,9 @@
-FROM eclipse-temurin:21-jdk AS builder
+FROM eclipse-temurin:25-jdk AS builder
 WORKDIR /src
 COPY . .
 RUN ./gradlew --no-daemon :application:installDist
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd --system --uid 10001 app
 COPY --from=builder /src/application/build/install/application /opt/app
 USER app

@@ -27,6 +27,7 @@ cp .env.example .env
 | `JWT_SECRET` | at least 32 bytes, e.g. `openssl rand -base64 48` |
 | `SECRETKEY` | exactly 32 chars, used to encrypt SIGA credentials, e.g. `openssl rand -hex 16` |
 | `ONESIGNAL_APIKEY` | OneSignal REST API key |
+| `ADMIN_EMAILS` | optional, comma-separated. Listed users get the `ADMIN` role at startup, and listed emails get it at sign-up |
 | `SIGA_YEAR` / `SIGA_TERM` | optional. By default the hourly job syncs the most recent period SIGA lists, so nothing changes across a semester boundary. Set both to pin a period, e.g. `2026` / `1` |
 
 With Docker Compose, after building the distribution the image packages:
@@ -112,7 +113,7 @@ docker exec -i <db-container> psql -U sigabot sigabot < siga-bot.sql
 
 ## Endpoints
 
-The API is versioned in the path, under `/api/v1`. A version the server does not serve answers `400`. Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes and refresh tokens last 1 year.
+The API is versioned in the path, under `/api/v1`. A version the server does not serve answers `400`. Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes. Refresh tokens are opaque, stored only as a SHA-256 hash, and rotate on every refresh with a 30-day lifetime. Sign-up, login and refresh are each limited to 10 requests per minute per client address, and going over answers `429`. Behind a reverse proxy on a private network, the address comes from `X-Forwarded-For`.
 
 The OpenAPI contract is served at `GET /api/v1/openapi.json`. It covers every route except `POST /api/v1/sessions`, which Spring Security handles before MVC.
 
@@ -129,6 +130,7 @@ Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `ap
 | `POST /api/v1/users` | public | sign up |
 | `POST /api/v1/sessions` | public | log in |
 | `POST /api/v1/sessions/refresh` | public | trade a refresh token for new tokens |
+| `POST /api/v1/sessions/revoke` | public | log out |
 | `GET /api/v1/me` | authenticated | the signed-in user |
 | `GET /api/v1/me/terms` | `STUDENT` | terms with grades, newest first |
 | `GET /api/v1/me/terms/{year}/{term}/enrollments` | `STUDENT` | stored grades of a term |
@@ -167,7 +169,7 @@ Response `201` with `Location: /api/v1/me`:
 Response `200` (`401` on wrong credentials):
 
 ```json
-{ "accessToken": "eyJ...", "refreshToken": "eyJ...", "userId": "01a1f973-13ad-7a5c-80df-bf421ada5df1" }
+{ "accessToken": "eyJ...", "refreshToken": "q1Vb...", "userId": "01a1f973-13ad-7a5c-80df-bf421ada5df1" }
 ```
 
 The app registers `userId` as the OneSignal external user id, which is how user notifications and new-grade pushes reach the device.
@@ -175,10 +177,14 @@ The app registers `userId` as the OneSignal external user id, which is how user 
 ### `POST /api/v1/sessions/refresh`
 
 ```json
-{ "refreshToken": "eyJ..." }
+{ "refreshToken": "q1Vb..." }
 ```
 
-Response `200` has the same body as `/sessions`, or `401` when the token is invalid.
+Response `200` has the same body as `/sessions`, with a new refresh token. The one sent is spent: using it again revokes the whole session, so a stolen token works at most until its owner refreshes. It answers `401` for an unknown, expired, reused or revoked token.
+
+### `POST /api/v1/sessions/revoke`
+
+Logs out. Same body as `/sessions/refresh`. It answers `204` and revokes every refresh token of that session.
 
 ### `GET /api/v1/me/terms`
 

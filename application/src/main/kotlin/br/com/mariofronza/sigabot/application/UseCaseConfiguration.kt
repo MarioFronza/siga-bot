@@ -1,5 +1,13 @@
 package br.com.mariofronza.sigabot.application
 
+import org.springframework.beans.factory.annotation.Value
+import br.com.mariofronza.sigabot.usecases.identity.port.RefreshTokenRepository
+import br.com.mariofronza.sigabot.usecases.identity.port.AccessTokenIssuer
+import br.com.mariofronza.sigabot.usecases.identity.RevokeSession
+import br.com.mariofronza.sigabot.usecases.identity.RefreshSession
+import br.com.mariofronza.sigabot.usecases.identity.OpenSession
+import br.com.mariofronza.sigabot.usecases.identity.GrantAdmins
+import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
 import br.com.mariofronza.sigabot.usecases.academic.RunDueSyncs
@@ -32,6 +40,24 @@ class UseCaseConfiguration {
     fun clock(): Clock = Clock.systemUTC()
 
     @Bean
+    fun adminEmails(@Value("\${admin.emails:}") raw: String): Set<Email> =
+        raw.split(",").map(String::trim).filter(String::isNotEmpty).map(Email::of).toSet()
+
+    @Bean
+    fun grantAdmins(users: UserRepository, adminEmails: Set<Email>) = GrantAdmins(users, adminEmails)
+
+    @Bean
+    fun openSession(tokens: RefreshTokenRepository, accessTokens: AccessTokenIssuer, clock: Clock) =
+        OpenSession(tokens, accessTokens, clock)
+
+    @Bean
+    fun refreshSession(tokens: RefreshTokenRepository, users: UserRepository, openSession: OpenSession, transaction: TransactionRunner, clock: Clock) =
+        RefreshSession(tokens, users, openSession, transaction, clock)
+
+    @Bean
+    fun revokeSession(tokens: RefreshTokenRepository, clock: Clock) = RevokeSession(tokens, clock)
+
+    @Bean
     fun registerStudent(
         users: UserRepository,
         institutions: InstitutionRepository,
@@ -40,7 +66,8 @@ class UseCaseConfiguration {
         queue: SyncQueue,
         transaction: TransactionRunner,
         clock: Clock,
-    ) = RegisterStudent(users, institutions, hasher, cipher, queue, transaction, clock)
+        adminEmails: Set<Email>,
+    ) = RegisterStudent(users, institutions, hasher, cipher, queue, transaction, clock, adminEmails)
 
     @Bean
     fun syncStudentGrades(

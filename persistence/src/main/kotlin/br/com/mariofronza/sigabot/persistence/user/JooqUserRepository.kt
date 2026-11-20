@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.persistence.user
 
+import org.jooq.impl.DSL.value
 import org.jooq.impl.DSL.field
 import org.jooq.Field
 import br.com.mariofronza.sigabot.entity.user.UserId
@@ -99,6 +100,17 @@ class JooqUserRepository(
             .set(USERS.UPDATED_AT, currentOffsetDateTime())
             .where(USERS.EXTERNAL_ID.eq(user.id.value))
             .execute()
+        dsl.deleteFrom(USER_ROLES).where(USER_ROLES.USER_ID.eq(userKey(user.id))).execute()
+        insertRoles(userKey(user.id), user.roles)
+    }
+
+    private fun insertRoles(userId: Field<Long?>, roles: Set<Role>) {
+        roles.forEach {
+            dsl.insertInto(USER_ROLES)
+                .set(USER_ROLES.USER_ID, userId)
+                .set(USER_ROLES.ROLE_ID, field(select(ROLES.ID).from(ROLES).where(ROLES.NAME.eq(it.name))))
+                .execute()
+        }
     }
 
     private fun insert(user: User) {
@@ -110,12 +122,7 @@ class JooqUserRepository(
             .set(USERS.ACTIVE, user.isActive)
             .returning(USERS.ID)
             .fetchSingle { it.id }
-        user.roles.forEach {
-            dsl.insertInto(USER_ROLES)
-                .set(USER_ROLES.USER_ID, id)
-                .set(USER_ROLES.ROLE_ID, field(select(ROLES.ID).from(ROLES).where(ROLES.NAME.eq(it.name))))
-                .execute()
-        }
+        insertRoles(value<Long?>(id), user.roles)
         user.academicAccounts.forEach {
             dsl.insertInto(ACADEMIC_ACCOUNTS)
                 .set(ACADEMIC_ACCOUNTS.USER_ID, id)

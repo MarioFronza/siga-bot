@@ -19,6 +19,8 @@ data class User(
 
     fun rename(fullName: String) = copy(fullName = fullName)
 
+    fun grant(role: Role) = copy(roles = roles + role)
+
     companion object {
         fun registerStudent(email: Email, passwordHash: String, account: AcademicAccount) = User(
             isActive = true,

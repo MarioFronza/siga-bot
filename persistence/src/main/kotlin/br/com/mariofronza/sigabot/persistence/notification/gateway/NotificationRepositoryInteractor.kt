@@ -7,8 +7,10 @@ import br.com.mariofronza.sigabot.persistence.notification.repository.Notificati
 import br.com.mariofronza.sigabot.persistence.user.repository.UserRepository
 import br.com.mariofronza.sigabot.usecases.notification.gateway.NotificationInteractor
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
+@Transactional
 class NotificationRepositoryInteractor(
     private val notificationRepository: NotificationRepository,
     private val userRepository: UserRepository,

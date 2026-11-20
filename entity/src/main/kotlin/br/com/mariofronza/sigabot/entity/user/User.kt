@@ -10,7 +10,7 @@ data class User(
     val email: String,
     val passwordHash: String,
     val roles: List<Role>,
-    val sigaCredential: SigaCredential,
+    val academicAccounts: List<AcademicAccount>,
 ) {
     val username: String
         get() = if (fullName.isNotEmpty()) fullName.split(" ").first() else ""

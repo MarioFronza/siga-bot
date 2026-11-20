@@ -11,7 +11,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.JoinTable
 import jakarta.persistence.ManyToMany
-import jakarta.persistence.OneToOne
+import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.UpdateTimestamp
 import org.hibernate.annotations.UuidGenerator
@@ -45,8 +45,8 @@ class UserJPA(
     @Column(name = "external_id", updatable = false)
     val externalId: UUID? = null
 
-    @OneToOne(mappedBy = "user", cascade = [CascadeType.ALL], optional = false)
-    lateinit var sigaCredential: SigaCredentialJPA
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val academicAccounts: MutableList<AcademicAccountJPA> = mutableListOf()
 
     @UpdateTimestamp
     @Column(name = "updated_at")
@@ -60,6 +60,6 @@ class UserJPA(
         email = email,
         passwordHash = passwordHash,
         roles = roles.map { it.toEntity() },
-        sigaCredential = sigaCredential.toEntity(),
+        academicAccounts = academicAccounts.map { it.toEntity() },
     )
 }

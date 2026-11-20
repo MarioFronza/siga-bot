@@ -31,38 +31,60 @@ create table user_roles
 
 create index user_roles_role_id_idx on user_roles (role_id);
 
--- One SIGA login per user. cpf_digest is a keyed hash, so a CPF can be looked up
--- and kept unique without decrypting every row.
-create table siga_credentials
+-- Institutions whose academic systems the bot reads. grade_scale_max tells how to read their grades.
+create table institutions
 (
-    user_id             bigint primary key references users (id) on delete cascade,
-    cpf_ciphertext      text        not null,
-    cpf_digest          bytea       not null unique,
-    password_ciphertext text        not null,
-    created_at          timestamptz not null default now(),
-    updated_at          timestamptz not null default now()
+    id              bigint generated always as identity primary key,
+    code            text          not null unique,
+    name            text          not null,
+    grade_scale_max numeric(5, 2) not null check (grade_scale_max > 0)
 );
 
--- Catalog scraped from SIGA
+insert into institutions (code, name, grade_scale_max)
+values ('udesc', 'Universidade do Estado de Santa Catarina', 10);
+
+-- A user's login in one institution's academic system. The login is whatever that system asks for
+-- (CPF, enrollment number). login_digest is a keyed hash, so a login can be looked up and kept unique
+-- per institution without decrypting every row.
+create table academic_accounts
+(
+    id                  bigint generated always as identity primary key,
+    user_id             bigint      not null references users (id) on delete cascade,
+    institution_id      bigint      not null references institutions (id),
+    login_ciphertext    text        not null,
+    login_digest        bytea       not null,
+    password_ciphertext text        not null,
+    created_at          timestamptz not null default now(),
+    updated_at          timestamptz not null default now(),
+    unique (user_id, institution_id),
+    unique (institution_id, login_digest)
+);
+
+-- Catalog scraped from each institution, so names and terms are unique per institution
 
 create table courses
 (
-    id   bigint generated always as identity primary key,
-    name text not null unique
+    id             bigint generated always as identity primary key,
+    institution_id bigint not null references institutions (id),
+    name           text   not null,
+    unique (institution_id, name)
 );
 
 create table academic_terms
 (
-    id   bigint generated always as identity primary key,
-    year integer not null check (year > 1900),
-    term integer not null check (term > 0),
-    unique (year, term)
+    id             bigint generated always as identity primary key,
+    institution_id bigint  not null references institutions (id),
+    year           integer not null check (year > 1900),
+    term           integer not null check (term > 0),
+    unique (institution_id, year, term)
 );
 
 create table subjects
 (
-    id   bigint generated always as identity primary key,
-    name text not null unique
+    id             bigint generated always as identity primary key,
+    institution_id bigint not null references institutions (id),
+    name           text   not null,
+    unique (institution_id, name)
 );
 
 create table class_sections
@@ -94,7 +116,7 @@ create table enrollments
     id                    bigint generated always as identity primary key,
     user_id               bigint       not null references users (id) on delete cascade,
     subject_offering_id   bigint       not null references subject_offerings (id),
-    final_grade           numeric(4, 2) check (final_grade between 0 and 10),
+    final_grade           numeric(5, 2) check (final_grade >= 0),
     absences              integer      not null default 0 check (absences >= 0),
     attendance_percentage numeric(5, 2) check (attendance_percentage between 0 and 100),
     result                text         not null,

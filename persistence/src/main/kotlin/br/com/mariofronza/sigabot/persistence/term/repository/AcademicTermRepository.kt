@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Query
 
 interface AcademicTermRepository : JpaRepository<AcademicTermJPA, Long> {
 
-    fun findByYearAndTerm(year: Int, term: Int): AcademicTermJPA?
+    fun findByInstitutionIdAndYearAndTerm(institutionId: Long, year: Int, term: Int): AcademicTermJPA?
 
     @Query(
         """

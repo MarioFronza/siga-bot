@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface SubjectRepository : JpaRepository<SubjectJPA, Long> {
 
-    fun findByName(name: String): SubjectJPA?
+    fun findByInstitutionIdAndName(institutionId: Long, name: String): SubjectJPA?
 }

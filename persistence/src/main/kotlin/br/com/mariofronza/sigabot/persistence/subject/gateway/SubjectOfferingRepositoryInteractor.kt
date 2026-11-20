@@ -9,8 +9,10 @@ import br.com.mariofronza.sigabot.persistence.subject.repository.SubjectOffering
 import br.com.mariofronza.sigabot.persistence.subject.repository.SubjectRepository
 import br.com.mariofronza.sigabot.usecases.siga.subject.gateway.SubjectOfferingInteractor
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
+@Transactional
 class SubjectOfferingRepositoryInteractor(
     private val subjectOfferingRepository: SubjectOfferingRepository,
     private val subjectRepository: SubjectRepository,

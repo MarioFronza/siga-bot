@@ -16,8 +16,8 @@ interface EnrollmentRepository : JpaRepository<EnrollmentJPA, Long> {
         join fetch o.classSection s
         join fetch s.course
         join fetch s.academicTerm t
-        where e.user.id = :userId and t.id = :academicTermId
+        where e.user.id = :userId and t.year = :year and t.term = :term
         """
     )
-    fun findAllByUserIdAndAcademicTermId(userId: Long, academicTermId: Long): List<EnrollmentJPA>
+    fun findAllByUserIdAndYearAndTerm(userId: Long, year: Int, term: Int): List<EnrollmentJPA>
 }

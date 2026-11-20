@@ -2,7 +2,6 @@ package br.com.mariofronza.sigabot.persistence.enrollment.gateway
 
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.persistence.enrollment.entity.EnrollmentJPA
 import br.com.mariofronza.sigabot.persistence.enrollment.repository.EnrollmentRepository
@@ -21,8 +20,8 @@ class EnrollmentRepositoryInteractor(
     private val subjectOfferingRepository: SubjectOfferingRepository,
 ) : EnrollmentInteractor {
 
-    override fun findAll(user: User, academicTerm: AcademicTerm): List<Enrollment> =
-        enrollmentRepository.findAllByUserIdAndAcademicTermId(user.id!!, academicTerm.id!!).map { it.toEntity(user) }
+    override fun findAll(user: User, year: Int, term: Int): List<Enrollment> =
+        enrollmentRepository.findAllByUserIdAndYearAndTerm(user.id!!, year, term).map { it.toEntity(user) }
 
     override fun find(user: User, subjectOffering: SubjectOffering): Enrollment? =
         enrollmentRepository.findByUserIdAndSubjectOfferingId(user.id!!, subjectOffering.id!!)

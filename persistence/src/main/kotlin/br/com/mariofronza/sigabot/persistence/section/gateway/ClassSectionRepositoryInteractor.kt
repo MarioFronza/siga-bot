@@ -9,8 +9,10 @@ import br.com.mariofronza.sigabot.persistence.section.repository.ClassSectionRep
 import br.com.mariofronza.sigabot.persistence.term.repository.AcademicTermRepository
 import br.com.mariofronza.sigabot.usecases.siga.section.gateway.ClassSectionInteractor
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
+@Transactional
 class ClassSectionRepositoryInteractor(
     private val classSectionRepository: ClassSectionRepository,
     private val courseRepository: CourseRepository,

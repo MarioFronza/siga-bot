@@ -22,18 +22,14 @@ class DashboardInfoService(
         val user = getCurrentUser()
         return UserPeriodsOutput(
             username = user.username,
-            periods = academicTermService.findAllEnrolledBy(user).map(AcademicTermOutput::from)
+            periods = academicTermService.findAllEnrolledBy(user).map(AcademicTermOutput::from).distinct()
         )
     }
 
     fun getStudentSemesterResults(dashboardInput: DashboardInput): DashboardOutput {
         val user = getCurrentUser()
-        val academicTerm = academicTermService.findByYearAndTerm(
-            year = dashboardInput.year,
-            term = dashboardInput.term
-        )
 
-        val results = enrollmentService.findAll(user, academicTerm).map {
+        val results = enrollmentService.findAll(user, dashboardInput.year, dashboardInput.term).map {
             ResultOutput(
                 finalGrade = it.finalGrade,
                 courseLoad = it.subjectOffering.courseLoad,
@@ -46,7 +42,7 @@ class DashboardInfoService(
         }
 
         return DashboardOutput(
-            period = AcademicTermOutput.from(academicTerm),
+            period = AcademicTermOutput(year = dashboardInput.year, term = dashboardInput.term),
             results = results
         )
     }

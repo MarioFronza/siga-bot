@@ -1,11 +1,13 @@
 package br.com.mariofronza.sigabot.usecases.user
 
+import br.com.mariofronza.sigabot.entity.institution.Institution
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserInput
 import br.com.mariofronza.sigabot.usecases.user.dto.SigaCredentialRequest
-import br.com.mariofronza.sigabot.usecases.user.gateway.SigaCredentialInteractor
+import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionInteractor
+import br.com.mariofronza.sigabot.usecases.user.gateway.AcademicAccountInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -18,21 +20,25 @@ import java.util.UUID
 
 class UserServiceTest : FunSpec({
 
+    val udesc = Institution(id = 1, code = "udesc", name = "UDESC", gradeScaleMax = 10.0)
+
     test("signs up every new user as STUDENT") {
         val userInteractor: UserInteractor = mockk()
         val roleService: RoleService = mockk()
-        val sigaCredentialInteractor: SigaCredentialInteractor = mockk()
+        val institutionInteractor: InstitutionInteractor = mockk()
+        val academicAccountInteractor: AcademicAccountInteractor = mockk()
         val cryptographyService: CryptographyService = mockk()
         val savedUser = slot<User>()
 
         every { userInteractor.findByEmail(any()) } returns null
-        every { sigaCredentialInteractor.existsByCpfDigest(any()) } returns false
+        every { institutionInteractor.findByCode("udesc") } returns udesc
+        every { academicAccountInteractor.existsByLoginDigest(udesc, any()) } returns false
         every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
         every { cryptographyService.encrypt(any()) } returns "encrypted"
         every { cryptographyService.digest(any()) } returns byteArrayOf(1)
         every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured.copy(id = 1, externalId = UUID.randomUUID()) }
 
-        UserService(userInteractor, roleService, sigaCredentialInteractor, BCryptPasswordEncoder(), cryptographyService)
+        UserService(userInteractor, roleService, institutionInteractor, academicAccountInteractor, BCryptPasswordEncoder(), cryptographyService)
             .createUser(
                 CreateUserInput(
                     email = "attacker@test.com",
@@ -48,17 +54,19 @@ class UserServiceTest : FunSpec({
         val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
         val userInteractor: UserInteractor = mockk()
         val roleService: RoleService = mockk()
-        val sigaCredentialInteractor: SigaCredentialInteractor = mockk()
+        val institutionInteractor: InstitutionInteractor = mockk()
+        val academicAccountInteractor: AcademicAccountInteractor = mockk()
         val cryptographyService: CryptographyService = mockk()
 
         every { userInteractor.findByEmail(any()) } returns null
-        every { sigaCredentialInteractor.existsByCpfDigest(any()) } returns false
+        every { institutionInteractor.findByCode("udesc") } returns udesc
+        every { academicAccountInteractor.existsByLoginDigest(udesc, any()) } returns false
         every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
         every { cryptographyService.encrypt(any()) } returns "encrypted"
         every { cryptographyService.digest(any()) } returns byteArrayOf(1)
         every { userInteractor.save(any()) } answers { firstArg<User>().copy(id = 1, externalId = externalId) }
 
-        val output = UserService(userInteractor, roleService, sigaCredentialInteractor, BCryptPasswordEncoder(), cryptographyService)
+        val output = UserService(userInteractor, roleService, institutionInteractor, academicAccountInteractor, BCryptPasswordEncoder(), cryptographyService)
             .createUser(
                 CreateUserInput(
                     email = "student@test.com",
@@ -72,15 +80,17 @@ class UserServiceTest : FunSpec({
 
     test("rejects a sign-up whose CPF is already registered") {
         val userInteractor: UserInteractor = mockk()
-        val sigaCredentialInteractor: SigaCredentialInteractor = mockk()
+        val institutionInteractor: InstitutionInteractor = mockk()
+        val academicAccountInteractor: AcademicAccountInteractor = mockk()
         val cryptographyService: CryptographyService = mockk()
 
         every { userInteractor.findByEmail(any()) } returns null
         every { cryptographyService.digest("00000000000") } returns byteArrayOf(7)
-        every { sigaCredentialInteractor.existsByCpfDigest(byteArrayOf(7)) } returns true
+        every { institutionInteractor.findByCode("udesc") } returns udesc
+        every { academicAccountInteractor.existsByLoginDigest(udesc, byteArrayOf(7)) } returns true
 
         val error = shouldThrow<Exception> {
-            UserService(userInteractor, mockk(), sigaCredentialInteractor, BCryptPasswordEncoder(), cryptographyService)
+            UserService(userInteractor, mockk(), institutionInteractor, academicAccountInteractor, BCryptPasswordEncoder(), cryptographyService)
                 .createUser(
                     CreateUserInput(
                         email = "student@test.com",

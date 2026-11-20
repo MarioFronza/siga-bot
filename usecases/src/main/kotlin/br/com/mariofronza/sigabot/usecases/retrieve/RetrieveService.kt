@@ -1,7 +1,8 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
 import br.com.mariofronza.sigabot.entity.term.AcademicTerm
-import br.com.mariofronza.sigabot.entity.user.SigaCredential
+import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.siga.course.CourseService
 import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
@@ -53,24 +54,26 @@ class RetrieveService(
 
         println("User: ${user.username}")
 
-        val input = retrieveInput.toSemesterResultsExtractionInput(
-            generateSigaCredentialInput(user.sigaCredential)
-        )
+        // The scraper only speaks UDESC's SIGA so far.
+        val account = user.academicAccounts.first { it.institution.code == Institution.UDESC }
+        val institution = account.institution
+
+        val input = retrieveInput.toSemesterResultsExtractionInput(generateSigaCredentialInput(account))
 
         val semesterResultsList = semesterResultsExtraction.extract(input, completeExtraction = completeExtraction)
 
-        val course = courseService.createCourse(semesterResultsList.course)
+        val course = courseService.findOrCreate(institution, semesterResultsList.course)
         user = userInteractor.save(user.copy(fullName = semesterResultsList.studentName))
         val academicTerms = mutableListOf<AcademicTerm>()
 
         semesterResultsList.semesterResultsPeriod.map { semesterResults ->
             val (year, term) = parseAcademicTerm(semesterResults.period)
-            val academicTerm = academicTermService.findOrCreate(year, term)
+            val academicTerm = academicTermService.findOrCreate(institution, year, term)
             academicTerms.add(academicTerm)
 
             semesterResults.semesterResults.map {
                 val classSection = classSectionService.findOrCreate(it.groupName, course, academicTerm)
-                val subject = subjectService.createSubject(it.subjectName)
+                val subject = subjectService.findOrCreate(institution, it.subjectName)
                 val subjectOffering = subjectOfferingService.findOrCreate(subject, classSection, it.courseLoad)
 
                 if (enrollmentService.hasGradeChanged(user, subjectOffering, it)) {
@@ -107,10 +110,10 @@ class RetrieveService(
         return currentUser.toUser()
     }
 
-    private fun generateSigaCredentialInput(sigaCredential: SigaCredential): SigaCredentialInput {
+    private fun generateSigaCredentialInput(account: AcademicAccount): SigaCredentialInput {
         return SigaCredentialInput(
-            cpf = cryptographyService.decrypt(sigaCredential.cpfCiphertext),
-            password = cryptographyService.decrypt(sigaCredential.passwordCiphertext)
+            cpf = cryptographyService.decrypt(account.loginCiphertext),
+            password = cryptographyService.decrypt(account.passwordCiphertext)
         )
     }
 }

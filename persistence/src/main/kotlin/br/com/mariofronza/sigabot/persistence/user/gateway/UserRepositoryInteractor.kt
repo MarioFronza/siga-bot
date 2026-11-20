@@ -1,7 +1,8 @@
 package br.com.mariofronza.sigabot.persistence.user.gateway
 
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.persistence.user.entity.SigaCredentialJPA
+import br.com.mariofronza.sigabot.persistence.institution.repository.InstitutionRepository
+import br.com.mariofronza.sigabot.persistence.user.entity.AcademicAccountJPA
 import br.com.mariofronza.sigabot.persistence.user.entity.UserJPA
 import br.com.mariofronza.sigabot.persistence.user.repository.RoleRepository
 import br.com.mariofronza.sigabot.persistence.user.repository.UserRepository
@@ -15,6 +16,7 @@ import java.util.UUID
 class UserRepositoryInteractor(
     private val userRepository: UserRepository,
     private val roleRepository: RoleRepository,
+    private val institutionRepository: InstitutionRepository,
 ) : UserInteractor {
 
     override fun findAllActive(): List<User> = userRepository.findByActiveTrue().map { it.toEntity() }
@@ -43,12 +45,15 @@ class UserRepositoryInteractor(
         fullName = user.fullName,
         active = user.isActive,
         roles = user.roles.map { roleRepository.getReferenceById(it.id!!) }.toMutableSet(),
-    ).also {
-        it.sigaCredential = SigaCredentialJPA(
-            user = it,
-            cpfCiphertext = user.sigaCredential.cpfCiphertext,
-            cpfDigest = user.sigaCredential.cpfDigest,
-            passwordCiphertext = user.sigaCredential.passwordCiphertext,
-        )
+    ).also { entity ->
+        user.academicAccounts.mapTo(entity.academicAccounts) {
+            AcademicAccountJPA(
+                user = entity,
+                institution = institutionRepository.getReferenceById(it.institution.id!!),
+                loginCiphertext = it.loginCiphertext,
+                loginDigest = it.loginDigest,
+                passwordCiphertext = it.passwordCiphertext,
+            )
+        }
     }
 }

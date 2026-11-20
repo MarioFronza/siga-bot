@@ -1,12 +1,14 @@
 package br.com.mariofronza.sigabot.usecases.user
 
-import br.com.mariofronza.sigabot.entity.user.SigaCredential
+import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserInput
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserOutput
 import br.com.mariofronza.sigabot.usecases.user.dto.SigaCredentialRequest
-import br.com.mariofronza.sigabot.usecases.user.gateway.SigaCredentialInteractor
+import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionInteractor
+import br.com.mariofronza.sigabot.usecases.user.gateway.AcademicAccountInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
@@ -16,7 +18,8 @@ import java.util.UUID
 class UserService(
     val userInteractor: UserInteractor,
     val roleService: RoleService,
-    val sigaCredentialInteractor: SigaCredentialInteractor,
+    val institutionInteractor: InstitutionInteractor,
+    val academicAccountInteractor: AcademicAccountInteractor,
     val bCryptPasswordEncoder: BCryptPasswordEncoder,
     val cryptographyService: CryptographyService
 ) {
@@ -37,7 +40,10 @@ class UserService(
             throw Exception("User already exists")
         }
 
-        if (sigaCredentialInteractor.existsByCpfDigest(cpfDigest(cpf))) {
+        val institution = institutionInteractor.findByCode(Institution.UDESC)
+            ?: throw Exception("Institution ${Institution.UDESC} not found")
+
+        if (academicAccountInteractor.existsByLoginDigest(institution, cpfDigest(cpf))) {
             throw Exception("Siga credential already exists")
         }
 
@@ -49,7 +55,7 @@ class UserService(
                 isActive = true,
                 passwordHash = bCryptPasswordEncoder.encode(request.password)!!,
                 roles = listOf(role),
-                sigaCredential = encryptSigaCredential(request.sigaCredential),
+                academicAccounts = listOf(encryptAcademicAccount(institution, request.sigaCredential)),
             )
         )
 
@@ -60,11 +66,13 @@ class UserService(
         )
     }
 
-    private fun encryptSigaCredential(sigaCredentialRequest: SigaCredentialRequest): SigaCredential {
-        return SigaCredential(
-            cpfCiphertext = cryptographyService.encrypt(sigaCredentialRequest.cpf),
-            cpfDigest = cpfDigest(sigaCredentialRequest.cpf),
-            passwordCiphertext = cryptographyService.encrypt(sigaCredentialRequest.password)
+    // UDESC's SIGA logs in with the CPF, so the login digest ignores its formatting.
+    private fun encryptAcademicAccount(institution: Institution, request: SigaCredentialRequest): AcademicAccount {
+        return AcademicAccount(
+            institution = institution,
+            loginCiphertext = cryptographyService.encrypt(request.cpf),
+            loginDigest = cpfDigest(request.cpf),
+            passwordCiphertext = cryptographyService.encrypt(request.password)
         )
     }
 

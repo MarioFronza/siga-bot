@@ -30,6 +30,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.context.annotation.Import
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -138,7 +140,17 @@ class RepositoryInteractorsTest : FunSpec() {
             val user = newUser()
             notifications.save(Notification(user = user, message = "Nova nota em Banco de Dados"))
 
-            notifications.findByUser(user).single().message shouldBe "Nova nota em Banco de Dados"
+            notifications.findByUser(user, PageRequest.of(0, 20)).content.single().message shouldBe "Nova nota em Banco de Dados"
+        }
+
+        test("pages a user's notifications newest first, ignoring the requested sort") {
+            val user = newUser()
+            listOf("primeira", "segunda", "terceira").forEach { notifications.save(Notification(user = user, message = it)) }
+
+            val page = notifications.findByUser(user, PageRequest.of(0, 2, Sort.by("unknown")))
+
+            page.content.map { it.message } shouldBe listOf("terceira", "segunda")
+            page.totalElements shouldBe 3
         }
 
         test("lists the academic terms a user is enrolled in, newest first") {

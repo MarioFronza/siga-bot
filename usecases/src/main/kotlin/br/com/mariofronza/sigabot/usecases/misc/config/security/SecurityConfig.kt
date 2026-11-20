@@ -3,9 +3,9 @@ package br.com.mariofronza.sigabot.usecases.misc.config.security
 import br.com.mariofronza.sigabot.usecases.misc.filter.JWTAuthenticationFilter
 import br.com.mariofronza.sigabot.usecases.misc.filter.JWTAuthorizationFilter
 import br.com.mariofronza.sigabot.usecases.misc.utils.JWTUtil
+import jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.HttpMethod.GET
 import org.springframework.http.HttpMethod.POST
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.ProviderManager
@@ -36,17 +36,19 @@ class SecurityConfig(
     @Bean
     fun securityFilterChain(http: HttpSecurity, authenticationManager: AuthenticationManager): SecurityFilterChain {
         val authenticationFilter = JWTAuthenticationFilter(authenticationManager, jwtUtil)
-            .apply { setFilterProcessesUrl("/sessions") }
+            .apply { setFilterProcessesUrl("/api/v1/sessions") }
 
         return http
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
-                it.requestMatchers("/sessions/**", "/users/**", "/health/**", "/auth/**", "/error").permitAll()
-                    .requestMatchers(GET, "/retrieve/**", "/dashboard/**").hasAuthority("STUDENT")
-                    .requestMatchers(POST, "/notifications/**").hasAuthority("ADMIN")
+                it.requestMatchers(POST, "/api/*/users", "/api/*/sessions", "/api/*/sessions/refresh").permitAll()
+                    .requestMatchers("/health", "/error", "/api/*/openapi.json").permitAll()
+                    .requestMatchers("/api/*/me/terms/**", "/api/*/me/syncs").hasAuthority("STUDENT")
+                    .requestMatchers(POST, "/api/*/notifications", "/api/*/users/*/notifications").hasAuthority("ADMIN")
                     .anyRequest().authenticated()
             }
+            .exceptionHandling { it.authenticationEntryPoint { _, response, _ -> response.sendError(SC_UNAUTHORIZED) } }
             .addFilter(authenticationFilter)
             .addFilterBefore(
                 JWTAuthorizationFilter(authenticationManager, jwtUtil, userDetailsService),

@@ -32,5 +32,5 @@ class NotificationJPA(
     @Column(name = "created_at", updatable = false)
     val createdAt: Instant? = null
 
-    fun toEntity(user: User) = Notification(id = id, user = user, message = message)
+    fun toEntity(user: User) = Notification(id = id, user = user, message = message, createdAt = createdAt)
 }

@@ -8,19 +8,16 @@ import br.com.mariofronza.sigabot.usecases.siga.course.CourseService
 import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
-import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.siga.section.ClassSectionService
 import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
 import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 import br.com.mariofronza.sigabot.usecases.notification.PushNotification
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
-import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveOutput
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
 import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectOfferingService
 import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectService
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.slf4j.LoggerFactory
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 
 @Service
@@ -37,19 +34,16 @@ class RetrieveService(
     private val cryptographyService: CryptographyService
 ) {
 
-    fun retrieve(retrieveInput: RetrieveInput) = retrieveSemesterResults(retrieveInput)
+    fun fullRetrieve(user: User) = retrieveSemesterResults(RetrieveInput(), user, completeExtraction = true)
 
-    fun fullRetrieve(retrieveInput: RetrieveInput) = retrieveSemesterResults(retrieveInput, true)
-
-    fun retrieveForUser(retrieveInput: RetrieveInput, user: User) =
-        retrieveSemesterResults(retrieveInput = retrieveInput, currentUser = user)
+    fun retrieveForUser(retrieveInput: RetrieveInput, user: User) = retrieveSemesterResults(retrieveInput, user)
 
     private fun retrieveSemesterResults(
         retrieveInput: RetrieveInput,
+        currentUser: User,
         completeExtraction: Boolean = false,
-        currentUser: User? = null
-    ): RetrieveOutput {
-        var user = currentUser ?: getCurrentUser()
+    ): List<AcademicTermOutput> {
+        var user = currentUser
 
         logger.debug("Retrieving SIGA results for user {}", user.externalId)
 
@@ -84,10 +78,7 @@ class RetrieveService(
         }
 
         // return updated subject here
-        return RetrieveOutput(
-            username = user.username,
-            periods = academicTerms.map(AcademicTermOutput::from)
-        )
+        return academicTerms.map(AcademicTermOutput::from)
     }
 
     private fun parseAcademicTerm(text: String): Pair<Int, Int> {
@@ -98,11 +89,6 @@ class RetrieveService(
     private fun notifyWatchers(user: User, subjectName: String) {
         val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
         socketNotification.notifyUser(user.externalId!!, message)
-    }
-
-    private fun getCurrentUser(): User {
-        val currentUser = SecurityContextHolder.getContext().authentication!!.principal as UserDetailsImpl
-        return currentUser.toUser()
     }
 
     private fun generateSigaCredentialInput(account: AcademicAccount): SigaCredentialInput {

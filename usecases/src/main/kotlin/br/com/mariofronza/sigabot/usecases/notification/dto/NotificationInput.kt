@@ -1,5 +1,8 @@
 package br.com.mariofronza.sigabot.usecases.notification.dto
 
+import jakarta.validation.constraints.NotBlank
+
 data class NotificationInput(
-    val description: String,
+    @field:NotBlank
+    val message: String,
 )

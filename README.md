@@ -54,9 +54,13 @@ Run the tests:
 
 ## Release
 
-After the build and tests pass, every push to `main` publishes `mariofronza/siga-bot:latest` and `:sha-<short>` to Docker Hub.
+Every pull request runs the Gradle build and tests, builds the Docker image and scans it with Trivy, failing on fixable `HIGH` or `CRITICAL` vulnerabilities. It also checks that the title follows [Conventional Commits](https://www.conventionalcommits.org), because the squash commit title drives the release. All of these checks must pass before merging into `main`.
 
-Releases come from [release-please](https://github.com/googleapis/release-please). Each push to `main` opens or updates a `chore(main): release X.Y.Z` pull request, with the version bump and `CHANGELOG.md` derived from the conventional commits since the last release. Merging that pull request creates the `vX.Y.Z` tag and GitHub release, and the tag publishes `:X.Y.Z` and `:X.Y`.
+After the same checks pass on `main`, every push publishes `mariofronza/siga-bot:sha-<short>` to Docker Hub.
+
+Releases come from [release-please](https://github.com/googleapis/release-please). Each push to `main` opens or updates a `chore(main): release X.Y.Z` pull request, with the version bump and `CHANGELOG.md` derived from the conventional commits since the last release. Merging that pull request creates the `vX.Y.Z` tag and GitHub release, and the tag publishes `:X.Y.Z`, `:X.Y` and `:latest`, so `latest` always points at the newest release.
+
+Dependabot opens weekly pull requests for Gradle dependencies, the Docker base image and GitHub Actions. Dependency bumps use `fix(deps)` titles, so merging one ships a patch release.
 
 The workflow needs a `DOCKERHUB_USERNAME` variable plus `DOCKERHUB_TOKEN` and `RELEASE_PLEASE_TOKEN` secrets in the repository settings. `RELEASE_PLEASE_TOKEN` is a fine-grained token for this repository with read and write access to contents and pull requests. The default `GITHUB_TOKEN` does not work here because pull requests and tags it creates do not trigger the `build` check or the image publish.
 
@@ -71,6 +75,8 @@ docker run -d --name siga-bot --restart unless-stopped --env-file .env \
   -e DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/sigabot \
   -p 8080:8080 mariofronza/siga-bot:latest
 ```
+
+[Watchtower](https://containrrr.dev/watchtower/) on the same host picks up each new `latest` and restarts the container, so merging a release pull request is the whole deploy.
 
 If a variable is missing, the container stops with `Missing required environment variables: ...`.
 

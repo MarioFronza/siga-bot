@@ -54,13 +54,11 @@ Run the tests:
 
 ## Release
 
-After the build and tests pass, every push to `main` publishes `mariofronza/siga-bot:latest` and `:sha-<short>` to Docker Hub. Tagging `vX.Y.Z` also publishes `:X.Y.Z` and `:X.Y`.
+After the build and tests pass, every push to `main` publishes `mariofronza/siga-bot:latest` and `:sha-<short>` to Docker Hub.
 
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
+Releases come from [release-please](https://github.com/googleapis/release-please). Each push to `main` opens or updates a `chore(main): release X.Y.Z` pull request, with the version bump and `CHANGELOG.md` derived from the conventional commits since the last release. Merging that pull request creates the `vX.Y.Z` tag and GitHub release, and the tag publishes `:X.Y.Z` and `:X.Y`.
 
-The workflow needs a `DOCKERHUB_USERNAME` variable and a `DOCKERHUB_TOKEN` secret in the repository settings.
+The workflow needs a `DOCKERHUB_USERNAME` variable plus `DOCKERHUB_TOKEN` and `RELEASE_PLEASE_TOKEN` secrets in the repository settings. `RELEASE_PLEASE_TOKEN` is a fine-grained token for this repository with read and write access to contents and pull requests. The default `GITHUB_TOKEN` does not work here because pull requests and tags it creates do not trigger the `build` check or the image publish.
 
 To roll back, run the previous `X.Y.Z` tag against the same database.
 

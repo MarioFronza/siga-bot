@@ -7,7 +7,7 @@ import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.siga.course.CourseService
 import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
-import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
+import br.com.mariofronza.sigabot.usecases.credential.gateway.SecretCipher
 import br.com.mariofronza.sigabot.usecases.siga.section.ClassSectionService
 import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
 import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
@@ -31,7 +31,7 @@ class RetrieveService(
     private val enrollmentService: EnrollmentService,
     private val semesterResultsExtraction: SemesterResultsExtraction,
     private val socketNotification: PushNotification,
-    private val cryptographyService: CryptographyService
+    private val secretCipher: SecretCipher
 ) {
 
     fun fullRetrieve(user: User) = retrieveSemesterResults(RetrieveInput(), user, completeExtraction = true)
@@ -93,8 +93,8 @@ class RetrieveService(
 
     private fun generateSigaCredentialInput(account: AcademicAccount): SigaCredentialInput {
         return SigaCredentialInput(
-            cpf = cryptographyService.decrypt(account.loginCiphertext),
-            password = cryptographyService.decrypt(account.passwordCiphertext)
+            cpf = secretCipher.decrypt(account.loginCiphertext),
+            password = secretCipher.decrypt(account.passwordCiphertext)
         )
     }
 

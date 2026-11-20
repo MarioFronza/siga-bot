@@ -1,7 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.usecases.misc.config.ConfigService
 import br.com.mariofronza.sigabot.usecases.user.UserService
 import io.kotest.core.spec.style.FunSpec
 import io.mockk.every
@@ -23,12 +22,10 @@ class BackgroundRetrieveServiceTest : FunSpec({
         val (first, failing, last) = listOf(student(1), student(2), student(3))
         val userService: UserService = mockk()
         val retrieveService: RetrieveService = mockk(relaxed = true)
-        val configService: ConfigService = mockk()
-        every { configService.getRequiredInt(any()) } returns 2026
         every { userService.findAllActiveUsers() } returns listOf(first, failing, last)
         every { retrieveService.retrieveForUser(any(), failing) } throws IllegalStateException("SIGA rejected the login")
 
-        BackgroundRetrieveService(userService, retrieveService, configService).retrieveDataOnBackground()
+        BackgroundRetrieveService(userService, retrieveService).retrieveDataOnBackground(2026, 1)
 
         verify { retrieveService.retrieveForUser(any(), last) }
     }

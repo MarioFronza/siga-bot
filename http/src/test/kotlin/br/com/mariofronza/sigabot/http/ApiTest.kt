@@ -9,10 +9,10 @@ import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
 import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.usecases.auth.AuthService
-import br.com.mariofronza.sigabot.usecases.misc.config.security.SecurityConfig
-import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
-import br.com.mariofronza.sigabot.usecases.misc.utils.JWTUtil
+import br.com.mariofronza.sigabot.http.security.AuthService
+import br.com.mariofronza.sigabot.http.security.SecurityConfig
+import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
+import br.com.mariofronza.sigabot.http.security.JWTUtil
 import br.com.mariofronza.sigabot.usecases.notification.NotificationService
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput
 import br.com.mariofronza.sigabot.usecases.retrieve.RetrieveService

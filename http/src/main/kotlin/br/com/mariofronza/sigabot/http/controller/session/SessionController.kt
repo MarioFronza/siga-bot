@@ -1,7 +1,7 @@
 package br.com.mariofronza.sigabot.http.controller.session
 
-import br.com.mariofronza.sigabot.usecases.auth.AuthService
-import br.com.mariofronza.sigabot.usecases.auth.dto.RefreshSessionInput
+import br.com.mariofronza.sigabot.http.security.AuthService
+import br.com.mariofronza.sigabot.http.controller.session.RefreshSessionInput
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody

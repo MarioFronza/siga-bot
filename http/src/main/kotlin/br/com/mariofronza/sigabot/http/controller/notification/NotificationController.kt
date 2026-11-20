@@ -32,7 +32,7 @@ class NotificationController(
     fun list(
         @AuthenticationPrincipal principal: UserDetailsImpl,
         @ParameterObject @PageableDefault(size = 20) pageable: Pageable,
-    ): PagedModel<NotificationOutput> = PagedModel(notificationService.listNotifications(principal.toUser(), pageable))
+    ): PagedModel<NotificationOutput> = PagedModel(notificationService.listNotifications(principal.toUser().id, pageable))
 
     @PostMapping("/notifications")
     @ResponseStatus(ACCEPTED)

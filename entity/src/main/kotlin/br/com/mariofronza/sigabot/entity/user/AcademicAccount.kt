@@ -1,9 +1,9 @@
 package br.com.mariofronza.sigabot.entity.user
 
-import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 
 class AcademicAccount(
-    val institution: Institution,
+    val institution: InstitutionCode,
     val loginCiphertext: String,
     val loginDigest: ByteArray,
     val passwordCiphertext: String,

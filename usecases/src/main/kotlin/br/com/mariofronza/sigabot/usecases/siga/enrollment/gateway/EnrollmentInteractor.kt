@@ -1,15 +1,17 @@
 package br.com.mariofronza.sigabot.usecases.siga.enrollment.gateway
 
-import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.entity.catalog.SubjectOffering
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
-import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
-import br.com.mariofronza.sigabot.entity.user.User
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.entity.user.UserId
 
 interface EnrollmentInteractor {
 
-    fun findAll(user: User, period: AcademicPeriod): List<Enrollment>
+    fun find(studentId: UserId, offering: SubjectOffering): Enrollment?
 
-    fun find(user: User, subjectOffering: SubjectOffering): Enrollment?
+    fun findAll(studentId: UserId, period: AcademicPeriod): List<Enrollment>
 
-    fun save(enrollment: Enrollment): Enrollment
+    fun findPeriods(studentId: UserId): List<AcademicPeriod>
+
+    fun save(enrollment: Enrollment)
 }

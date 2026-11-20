@@ -1,22 +1,23 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
+import br.com.mariofronza.sigabot.entity.catalog.SubjectOffering
+import br.com.mariofronza.sigabot.entity.enrollment.Attendance
+import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
+import br.com.mariofronza.sigabot.entity.enrollment.Grade
+import br.com.mariofronza.sigabot.entity.enrollment.GradePosted
+import br.com.mariofronza.sigabot.entity.enrollment.SemesterOutcome
+import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
-import br.com.mariofronza.sigabot.entity.institution.Institution
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.usecases.siga.course.CourseService
-import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
 import br.com.mariofronza.sigabot.usecases.credential.gateway.SecretCipher
-import br.com.mariofronza.sigabot.usecases.siga.section.ClassSectionService
-import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
-import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
+import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
+import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultOutput
+import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
 import br.com.mariofronza.sigabot.usecases.notification.PushNotification
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
-import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
-import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectOfferingService
-import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectService
+import br.com.mariofronza.sigabot.usecases.siga.enrollment.gateway.EnrollmentInteractor
+import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -24,12 +25,7 @@ import org.springframework.stereotype.Service
 @Service
 class RetrieveService(
     private val userInteractor: UserInteractor,
-    private val courseService: CourseService,
-    private val academicTermService: AcademicTermService,
-    private val classSectionService: ClassSectionService,
-    private val subjectService: SubjectService,
-    private val subjectOfferingService: SubjectOfferingService,
-    private val enrollmentService: EnrollmentService,
+    private val enrollmentInteractor: EnrollmentInteractor,
     private val semesterResultsExtraction: SemesterResultsExtraction,
     private val socketNotification: PushNotification,
     private val secretCipher: SecretCipher
@@ -44,45 +40,50 @@ class RetrieveService(
         currentUser: User,
         completeExtraction: Boolean = false,
     ): List<AcademicTermOutput> {
-        var user = currentUser
+        logger.debug("Retrieving SIGA results for user {}", currentUser.id)
 
-        logger.debug("Retrieving SIGA results for user {}", user.id)
-
-        val account = user.academicAccounts.first { it.institution.code == Institution.UDESC }
-        val institution = account.institution
-
+        val account = currentUser.accountAt(InstitutionCode.UDESC)
         val input = retrieveInput.toSemesterResultsExtractionInput(generateSigaCredentialInput(account))
-
         val semesterResultsList = semesterResultsExtraction.extract(input, completeExtraction = completeExtraction)
 
-        val course = courseService.findOrCreate(institution, semesterResultsList.course)
-        user = userInteractor.save(user.copy(fullName = semesterResultsList.studentName))
-        val academicTerms = mutableListOf<AcademicTerm>()
+        val user = currentUser.rename(semesterResultsList.studentName)
+        userInteractor.save(user)
 
-        semesterResultsList.semesterResultsPeriod.map { semesterResults ->
-            val academicTerm = academicTermService.findOrCreate(institution, AcademicPeriod.parse(semesterResults.period))
-            academicTerms.add(academicTerm)
-
-            semesterResults.semesterResults.map {
-                val classSection = classSectionService.findOrCreate(it.groupName, course, academicTerm)
-                val subject = subjectService.findOrCreate(institution, it.subjectName)
-                val subjectOffering = subjectOfferingService.findOrCreate(subject, classSection, it.courseLoad)
-
-                if (enrollmentService.hasGradeChanged(user, subjectOffering, it)) {
-                    logger.info("New grade for user {} in {}", user.id, subject.name)
-                    notifyWatchers(user, subject.name)
-                }
-
-                enrollmentService.record(user, subjectOffering, it)
+        val periods = semesterResultsList.semesterResultsPeriod.map { semesterResults ->
+            val period = AcademicPeriod.parse(semesterResults.period)
+            semesterResults.semesterResults.forEach {
+                val offering = offeringOf(account, period, semesterResultsList.course, it)
+                val recorded = Enrollment.record(user.id, offering, enrollmentInteractor.find(user.id, offering), outcomeOf(it))
+                enrollmentInteractor.save(recorded.enrollment)
+                recorded.events.forEach { event -> notifyWatchers(user, event) }
             }
+            period
         }
 
         // return updated subject here
-        return academicTerms.map(AcademicTermOutput::from)
+        return periods.map(AcademicTermOutput::from)
     }
 
-    private fun notifyWatchers(user: User, subjectName: String) {
-        val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
+    private fun offeringOf(account: AcademicAccount, period: AcademicPeriod, course: String, result: SemesterResultOutput) =
+        SubjectOffering(
+            institution = account.institution,
+            period = period,
+            course = course,
+            classSection = result.groupName,
+            subject = result.subjectName,
+            courseLoad = result.courseLoad,
+        )
+
+    private fun outcomeOf(result: SemesterResultOutput) = SemesterOutcome(
+        grade = Grade(result.finalGrade),
+        absences = result.absencesCount,
+        attendance = Attendance(result.attendancePercentage),
+        result = result.result,
+    )
+
+    private fun notifyWatchers(user: User, event: GradePosted) {
+        logger.info("New grade for user {} in {}", user.id, event.offering.subject)
+        val message = "${user.username}, você possui uma nota nova da matéria ${event.offering.subject}"
         socketNotification.notifyUser(user.id, message)
     }
 

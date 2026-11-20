@@ -1,9 +1,9 @@
 package br.com.mariofronza.sigabot.http.config
 
 import org.springframework.http.HttpStatus.BAD_REQUEST
-import br.com.mariofronza.sigabot.usecases.user.AcademicAccountAlreadyRegisteredException
-import br.com.mariofronza.sigabot.usecases.user.EmailAlreadyRegisteredException
-import br.com.mariofronza.sigabot.usecases.user.UserNotFoundException
+import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
+import br.com.mariofronza.sigabot.entity.user.EmailAlreadyRegisteredException
+import br.com.mariofronza.sigabot.entity.user.UserNotFoundException
 import com.auth0.jwt.exceptions.JWTVerificationException
 import org.springframework.http.HttpStatus.CONFLICT
 import org.springframework.http.HttpStatus.NOT_FOUND

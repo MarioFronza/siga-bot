@@ -1,37 +1,29 @@
 package br.com.mariofronza.sigabot.persistence
 
-import br.com.mariofronza.sigabot.entity.user.Email
+import br.com.mariofronza.sigabot.entity.catalog.SubjectOffering
 import br.com.mariofronza.sigabot.entity.enrollment.Attendance
-import br.com.mariofronza.sigabot.entity.enrollment.Grade
-import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
-import br.com.mariofronza.sigabot.entity.course.Course
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
+import br.com.mariofronza.sigabot.entity.enrollment.Grade
+import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.notification.Notification
-import br.com.mariofronza.sigabot.entity.section.ClassSection
-import br.com.mariofronza.sigabot.entity.subject.Subject
-import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
-import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
+import br.com.mariofronza.sigabot.entity.user.Email
+import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.persistence.course.gateway.CourseRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.enrollment.gateway.EnrollmentRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.notification.gateway.NotificationRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.section.gateway.ClassSectionRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.subject.gateway.SubjectOfferingRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.subject.gateway.SubjectRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.term.gateway.AcademicTermRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.user.gateway.RoleRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.institution.gateway.InstitutionRepositoryInteractor
+import br.com.mariofronza.sigabot.persistence.jooq.tables.references.ENROLLMENTS
+import br.com.mariofronza.sigabot.persistence.jooq.tables.references.INSTITUTIONS
+import br.com.mariofronza.sigabot.persistence.notification.gateway.NotificationRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.user.gateway.AcademicAccountRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.user.gateway.UserRepositoryInteractor
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
-import br.com.mariofronza.sigabot.persistence.jooq.tables.references.INSTITUTIONS
 import org.jooq.DSLContext
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 import org.springframework.boot.jooq.test.autoconfigure.JooqTest
@@ -43,87 +35,62 @@ import org.springframework.data.domain.Sort
 @ImportAutoConfiguration(FlywayAutoConfiguration::class)
 @Import(
     UserRepositoryInteractor::class,
-    RoleRepositoryInteractor::class,
     AcademicAccountRepositoryInteractor::class,
     InstitutionRepositoryInteractor::class,
     NotificationRepositoryInteractor::class,
-    CourseRepositoryInteractor::class,
-    AcademicTermRepositoryInteractor::class,
-    ClassSectionRepositoryInteractor::class,
-    SubjectRepositoryInteractor::class,
-    SubjectOfferingRepositoryInteractor::class,
     EnrollmentRepositoryInteractor::class,
 )
 class RepositoryInteractorsTest : FunSpec() {
 
     @Autowired lateinit var users: UserRepositoryInteractor
-    @Autowired lateinit var roles: RoleRepositoryInteractor
     @Autowired lateinit var accounts: AcademicAccountRepositoryInteractor
     @Autowired lateinit var institutions: InstitutionRepositoryInteractor
-    @Autowired lateinit var dsl: DSLContext
     @Autowired lateinit var notifications: NotificationRepositoryInteractor
-    @Autowired lateinit var courses: CourseRepositoryInteractor
-    @Autowired lateinit var academicTerms: AcademicTermRepositoryInteractor
-    @Autowired lateinit var classSections: ClassSectionRepositoryInteractor
-    @Autowired lateinit var subjects: SubjectRepositoryInteractor
-    @Autowired lateinit var subjectOfferings: SubjectOfferingRepositoryInteractor
     @Autowired lateinit var enrollments: EnrollmentRepositoryInteractor
+    @Autowired lateinit var dsl: DSLContext
 
-    private fun udesc() = institutions.findByCode(Institution.UDESC).shouldNotBeNull()
+    private val udesc = InstitutionCode.UDESC
+    private val ufpr = InstitutionCode("ufpr")
 
-    private fun ufpr(): Institution {
+    private fun seedUfpr() {
         dsl.insertInto(INSTITUTIONS)
-            .set(INSTITUTIONS.CODE, "ufpr")
+            .set(INSTITUTIONS.CODE, ufpr.value)
             .set(INSTITUTIONS.NAME, "Universidade Federal do Paraná")
             .set(INSTITUTIONS.GRADE_SCALE_MAX, 100.toBigDecimal())
             .execute()
-        return institutions.findByCode("ufpr").shouldNotBeNull()
     }
 
     private fun newUser(
         digest: ByteArray = byteArrayOf(1, 2, 3),
         email: String = "student@test.com",
-        institution: Institution = udesc(),
-    ) = users.save(
-        User(
-            isActive = true,
-            email = Email.of(email),
-            passwordHash = "hash",
-            roles = listOf(roles.findByName("STUDENT").shouldNotBeNull()),
-            academicAccounts = listOf(
-                AcademicAccount(
-                    institution = institution,
-                    loginCiphertext = "login",
-                    loginDigest = digest,
-                    passwordCiphertext = "password",
-                )
-            ),
-        )
-    )
+        institution: InstitutionCode = udesc,
+    ) = users.save(User.registerStudent(Email.of(email), "hash", AcademicAccount(institution, "login", digest, "password")))
 
-    private fun enroll(user: User, year: Int, term: Int): Enrollment {
-        val course = courses.save(Course(institution = udesc(), name = "Engenharia de Software $year/$term"))
-        val academicTerm = academicTerms.save(AcademicTerm(institution = udesc(), period = AcademicPeriod(year, term)))
-        val classSection = classSections.save(ClassSection(code = "ESO-1", course = course, academicTerm = academicTerm))
-        val subject = subjects.save(Subject(institution = udesc(), name = "Banco de Dados $year/$term"))
-        val offering = subjectOfferings.save(SubjectOffering(subject = subject, classSection = classSection, courseLoad = 72))
-        return enrollments.save(
-            Enrollment(
-                user = user,
-                subjectOffering = offering,
-                finalGrade = Grade(8.5),
-                absences = 2,
-                attendance = Attendance(95.0),
-                result = "Aprovado",
-            )
-        )
+    private fun offering(
+        period: AcademicPeriod = AcademicPeriod(2026, 1),
+        institution: InstitutionCode = udesc,
+        course: String = "Engenharia de Software",
+        classSection: String = "ESO-1",
+        subject: String = "Banco de Dados $period",
+    ) = SubjectOffering(institution, period, course, classSection, subject, courseLoad = 72)
+
+    private fun enroll(user: User, offering: SubjectOffering, grade: Double = 8.5): Enrollment {
+        val enrollment = Enrollment(user.id, offering, Grade(grade), absences = 2, attendance = Attendance(95.0), result = "Aprovado")
+        enrollments.save(enrollment)
+        return enrollment
     }
 
     init {
         extension(SpringExtension())
 
-        test("generates a time-ordered external id for a new user") {
-            newUser().id.value.version() shouldBe 7
+        test("keeps the id the domain gave the user") {
+            val saved = newUser()
+
+            users.findById(saved.id).shouldNotBeNull().id shouldBe saved.id
+        }
+
+        test("finds the seeded institution by its code") {
+            institutions.findByCode(udesc).shouldNotBeNull().gradeScaleMax shouldBe 10.0
         }
 
         test("loads a user with roles and academic accounts") {
@@ -132,15 +99,15 @@ class RepositoryInteractorsTest : FunSpec() {
             val loaded = users.findByEmail(Email.of("student@test.com")).shouldNotBeNull()
 
             loaded.id shouldBe saved.id
-            loaded.roles.map { it.name } shouldBe listOf("STUDENT")
+            loaded.roles shouldBe setOf(Role.STUDENT)
             loaded.academicAccounts.single().loginDigest shouldBe byteArrayOf(4, 5, 6)
             loaded.academicAccounts.single().loginCiphertext shouldBe "login"
-            loaded.academicAccounts.single().institution.code shouldBe Institution.UDESC
+            loaded.academicAccounts.single().institution shouldBe udesc
         }
 
         test("updates an existing user") {
             val saved = newUser()
-            users.save(saved.copy(fullName = "Ana Souza", isActive = false))
+            users.save(saved.rename("Ana Souza").copy(isActive = false))
 
             val loaded = users.findById(saved.id).shouldNotBeNull()
             loaded.fullName shouldBe "Ana Souza"
@@ -154,38 +121,14 @@ class RepositoryInteractorsTest : FunSpec() {
             users.findAllActive().map { it.id } shouldBe listOf(active.id)
         }
 
-        test("finds the catalog rows of a term") {
-            val user = newUser()
-            val offering = enroll(user, 2026, 1).subjectOffering
-            val section = offering.classSection
-
-            courses.findByName(udesc(), section.course.name).shouldNotBeNull().id shouldBe section.course.id
-            academicTerms.findByPeriod(udesc(), AcademicPeriod(2026, 1)).shouldNotBeNull().id shouldBe section.academicTerm.id
-            classSections.find("ESO-1", section.course, section.academicTerm).shouldNotBeNull().id shouldBe section.id
-            subjectOfferings.find(offering.subject, section).shouldNotBeNull().courseLoad shouldBe 72
-        }
-
-        test("lists the enrollments of a term with their offering") {
-            val user = newUser()
-            enroll(user, 2026, 1)
-            enroll(user, 2026, 2)
-
-            val enrollment = enrollments.findAll(user, AcademicPeriod(2026, 1)).single()
-            enrollment.subjectOffering.subject.name shouldBe "Banco de Dados 2026/1"
-            enrollment.subjectOffering.classSection.code shouldBe "ESO-1"
-            enrollment.subjectOffering.classSection.academicTerm.period.term shouldBe 1
-            enrollment.finalGrade shouldBe Grade(8.5)
-            enrollment.attendance shouldBe Attendance(95.0)
-        }
-
         test("finds an academic account by its login digest within the institution") {
             newUser(digest = byteArrayOf(9, 9, 9))
 
-            accounts.existsByLoginDigest(udesc(), byteArrayOf(9, 9, 9)) shouldBe true
+            accounts.existsByLoginDigest(udesc, byteArrayOf(9, 9, 9)) shouldBe true
         }
 
         test("accepts the same login in another institution") {
-            val ufpr = ufpr()
+            seedUfpr()
             newUser(digest = byteArrayOf(9, 9, 9))
             newUser(digest = byteArrayOf(9, 9, 9), email = "other@test.com", institution = ufpr)
 
@@ -193,43 +136,68 @@ class RepositoryInteractorsTest : FunSpec() {
         }
 
         test("keeps subjects with the same name apart per institution") {
-            subjects.save(Subject(institution = udesc(), name = "Cálculo I"))
-            val atUfpr = subjects.save(Subject(institution = ufpr(), name = "Cálculo I"))
+            seedUfpr()
+            val user = newUser()
+            enroll(user, offering(subject = "Cálculo I"))
+            enroll(user, offering(subject = "Cálculo I", institution = ufpr), grade = 70.0)
 
-            subjects.findByName(atUfpr.institution, "Cálculo I").shouldNotBeNull().id shouldBe atUfpr.id
+            enrollments.find(user.id, offering(subject = "Cálculo I", institution = ufpr)).shouldNotBeNull().grade shouldBe Grade(70.0)
+            enrollments.find(user.id, offering(subject = "Cálculo I")).shouldNotBeNull().grade shouldBe Grade(8.5)
+        }
+
+        test("keeps class sections with the same code apart per term and course") {
+            val user = newUser()
+            enroll(user, offering(period = AcademicPeriod(2026, 1), subject = "Banco de Dados"), grade = 6.0)
+            enroll(user, offering(period = AcademicPeriod(2026, 2), subject = "Banco de Dados"), grade = 7.0)
+            enroll(user, offering(course = "Ciência da Computação", subject = "Banco de Dados"), grade = 9.0)
+
+            enrollments.find(user.id, offering(period = AcademicPeriod(2026, 2), subject = "Banco de Dados")).shouldNotBeNull().grade shouldBe Grade(7.0)
+            enrollments.find(user.id, offering(course = "Ciência da Computação", subject = "Banco de Dados")).shouldNotBeNull().grade shouldBe Grade(9.0)
         }
 
         test("stores the notification message") {
             val user = newUser()
-            notifications.save(Notification(user = user, message = "Nova nota em Banco de Dados"))
+            notifications.save(Notification(recipient = user.id, message = "Nova nota em Banco de Dados"))
 
-            notifications.findByUser(user, PageRequest.of(0, 20)).content.single().message shouldBe "Nova nota em Banco de Dados"
+            notifications.findByRecipient(user.id, PageRequest.of(0, 20)).content.single().message shouldBe "Nova nota em Banco de Dados"
         }
 
         test("pages a user's notifications newest first, ignoring the requested sort") {
             val user = newUser()
-            listOf("primeira", "segunda", "terceira").forEach { notifications.save(Notification(user = user, message = it)) }
+            listOf("primeira", "segunda", "terceira").forEach { notifications.save(Notification(recipient = user.id, message = it)) }
 
-            val page = notifications.findByUser(user, PageRequest.of(0, 2, Sort.by("unknown")))
+            val page = notifications.findByRecipient(user.id, PageRequest.of(0, 2, Sort.by("unknown")))
 
             page.content.map { it.message } shouldBe listOf("terceira", "segunda")
             page.totalElements shouldBe 3
         }
 
-        test("lists the academic terms a user is enrolled in, newest first") {
+        test("lists the academic periods a user is enrolled in, newest first") {
             val user = newUser()
-            enroll(user, 2026, 1)
-            enroll(user, 2026, 2)
+            enroll(user, offering(period = AcademicPeriod(2026, 1)))
+            enroll(user, offering(period = AcademicPeriod(2026, 2)))
 
-            academicTerms.findAllEnrolledBy(user).map { it.period.year to it.period.term } shouldBe listOf(2026 to 2, 2026 to 1)
+            enrollments.findPeriods(user.id) shouldBe listOf(AcademicPeriod(2026, 2), AcademicPeriod(2026, 1))
         }
 
-        test("updates the grade of an existing enrollment") {
+        test("updates the grade of an existing enrollment instead of adding a row") {
             val user = newUser()
-            val enrollment = enroll(user, 2026, 1)
-            enrollments.save(enrollment.copy(finalGrade = Grade(9.75)))
+            val enrollment = enroll(user, offering())
+            enrollments.save(enrollment.copy(grade = Grade(9.75)))
 
-            enrollments.find(user, enrollment.subjectOffering).shouldNotBeNull().finalGrade shouldBe Grade(9.75)
+            enrollments.find(user.id, offering()).shouldNotBeNull().grade shouldBe Grade(9.75)
+            dsl.fetchCount(ENROLLMENTS) shouldBe 1
+        }
+
+        test("lists the enrollments of a term with their offering") {
+            val user = newUser()
+            enroll(user, offering(period = AcademicPeriod(2026, 1)))
+            enroll(user, offering(period = AcademicPeriod(2026, 2)))
+
+            val enrollment = enrollments.findAll(user.id, AcademicPeriod(2026, 1)).single()
+            enrollment.offering shouldBe offering(period = AcademicPeriod(2026, 1))
+            enrollment.grade shouldBe Grade(8.5)
+            enrollment.attendance shouldBe Attendance(95.0)
         }
     }
 }

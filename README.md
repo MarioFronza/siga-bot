@@ -5,7 +5,7 @@ A small bot that logs into [SIGA](https://siga.udesc.br) (UDESC's academic syste
 ## Technologies
 
 - Kotlin 2.4, Java 25
-- Spring Boot 4 (Web MVC, Security, Data JPA)
+- Spring Boot 4 (Web MVC, Security, jOOQ, Flyway)
 - PostgreSQL
 - Retrofit + OkHttp and Jsoup for scraping SIGA
 - JWT auth (auth0 java-jwt)
@@ -29,15 +29,16 @@ cp .env.example .env
 | `ONESIGNAL_APIKEY` | OneSignal REST API key |
 | `SIGA_YEAR` / `SIGA_TERM` | period the hourly job fetches, e.g. `2020` / `2` |
 
-With Docker:
+With Docker Compose, after building the distribution the image packages:
 
 ```bash
+./gradlew :application:distTar
 docker compose up --build
 ```
 
 The API listens on `http://localhost:8080`.
 
-Without Docker (needs Java 25 and a running Postgres):
+Without the app container (needs Java 25 and a running Postgres):
 
 ```bash
 export $(grep -v '^#' .env | xargs)
@@ -84,10 +85,10 @@ To expose it over HTTPS, point a Cloudflare Tunnel route at `http://<host>:8080`
 
 ## Database
 
-[Flyway](https://documentation.red-gate.com/flyway) creates and migrates the schema on startup from `persistence/src/main/resources/db/migration`, and Hibernate only validates the mappings against it (`ddl-auto=validate`), so a mismatch stops the app instead of silently altering tables.
+[Flyway](https://documentation.red-gate.com/flyway) creates and migrates the schema on startup from `persistence/src/main/resources/db/migration`, and the build generates the [jOOQ](https://www.jooq.org) classes from those same migrations. It applies them to a throwaway Postgres 18 container, so a query that no longer matches the schema fails to compile. Building `persistence` therefore needs Docker, the same as its tests. The generation is skipped while the migrations are unchanged.
 
 - Add a new `V<n>__<description>.sql` for every schema change. Never edit a migration that already ran, because Flyway checks their checksums.
-- `./gradlew test` runs every migration on a throwaway Postgres 18 through Testcontainers and validates the JPA mappings, so Docker must be running.
+- `./gradlew test` runs the repository tests against a throwaway Postgres 18 through Testcontainers, so Docker must be running.
 - Flyway only takes over an empty database. It refuses to start on a schema created before it, with `Found non-empty schema(s) "public" but no schema history table`.
 
 Back up and restore Postgres:

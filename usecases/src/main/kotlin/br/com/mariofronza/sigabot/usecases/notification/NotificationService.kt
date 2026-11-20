@@ -9,6 +9,7 @@ import br.com.mariofronza.sigabot.usecases.notification.gateway.NotificationInte
 import br.com.mariofronza.sigabot.usecases.user.UserService
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
 class NotificationService(
@@ -20,10 +21,7 @@ class NotificationService(
     fun listNotifications(): List<NotificationOutput> {
         val user = getCurrentUser()
         return notificationInteractor.findByUser(user).map {
-            NotificationOutput(
-                description = it.description,
-                entityId = it.entityId
-            )
+            NotificationOutput(description = it.message)
         }
     }
 
@@ -31,14 +29,10 @@ class NotificationService(
         socketNotification.notifyAllUsers(message)
     }
 
-    fun createNotificationToUser(userId: String, notificationInput: NotificationInput): Notification {
-        val user = userService.findById(userId.toLong())
-        val notification = Notification(
-            user = user,
-            description = notificationInput.description,
-            entityId = notificationInput.entityId
-        )
-        socketNotification.notifyUser(userId.toLong(), notification.description)
+    fun createNotificationToUser(externalId: UUID, notificationInput: NotificationInput): Notification {
+        val user = userService.findByExternalId(externalId)
+        val notification = Notification(user = user, message = notificationInput.description)
+        socketNotification.notifyUser(externalId, notification.message)
         return notificationInteractor.save(notification)
     }
 

@@ -1,19 +1,18 @@
 package br.com.mariofronza.sigabot.persistence.user.entity
 
 import br.com.mariofronza.sigabot.entity.user.Role
-import jakarta.persistence.*
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
 
 @Entity
 @Table(name = "roles")
-data class RoleJPA(
+class RoleJPA(
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long? = null,
+    val id: Long,
     @Column(name = "name")
-    val name: String
+    val name: String,
 ) {
-    fun toEntity() = Role(
-        id = id,
-        name = name
-    )
+    fun toEntity() = Role(id = id, name = name)
 }

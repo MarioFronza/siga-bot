@@ -1,41 +1,65 @@
 package br.com.mariofronza.sigabot.persistence.user.entity
 
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.persistence.group.entity.GroupJPA
-import jakarta.persistence.*
+import jakarta.persistence.CascadeType
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.JoinTable
+import jakarta.persistence.ManyToMany
+import jakarta.persistence.OneToMany
+import jakarta.persistence.Table
+import org.hibernate.annotations.UpdateTimestamp
+import org.hibernate.annotations.UuidGenerator
+import java.time.Instant
+import java.util.UUID
 
 @Entity
 @Table(name = "users")
-data class UserJPA(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long? = null,
-    @Column(name = "is_active")
-    var isActive: Boolean,
-    @Column(name = "full_name")
-    val fullName: String,
-    @Column(name = "username")
-    val username: String,
+class UserJPA(
     @Column(name = "email")
-    val email: String,
+    var email: String,
     @Column(name = "password_hash")
     var passwordHash: String,
+    @Column(name = "full_name")
+    var fullName: String,
+    @Column(name = "active")
+    var active: Boolean,
     @ManyToMany(fetch = FetchType.EAGER)
-    val roles: MutableList<RoleJPA>,
-    @OneToOne(cascade = [CascadeType.ALL])
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
-    val sigaCredential: SigaCredentialJPA,
-    @ManyToMany(fetch = FetchType.EAGER)
-    val groups: Set<GroupJPA>
+    @JoinTable(
+        name = "user_roles",
+        joinColumns = [JoinColumn(name = "user_id")],
+        inverseJoinColumns = [JoinColumn(name = "role_id")]
+    )
+    var roles: MutableSet<RoleJPA>,
 ) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null
+
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    @Column(name = "external_id", updatable = false)
+    val externalId: UUID? = null
+
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val academicAccounts: MutableList<AcademicAccountJPA> = mutableListOf()
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    var updatedAt: Instant? = null
+
     fun toEntity() = User(
         id = id,
-        isActive = isActive,
+        externalId = externalId,
+        isActive = active,
         fullName = fullName,
         email = email,
         passwordHash = passwordHash,
         roles = roles.map { it.toEntity() },
-        sigaCredential = sigaCredential.toEntity(),
-        groups = groups.map { it.toEntity() }.toMutableList()
+        academicAccounts = academicAccounts.map { it.toEntity() },
     )
 }

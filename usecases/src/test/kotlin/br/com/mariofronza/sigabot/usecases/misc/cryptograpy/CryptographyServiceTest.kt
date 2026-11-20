@@ -36,6 +36,17 @@ class CryptographyServiceTest : FunSpec({
         cryptographyService.encrypt("nice string") shouldNotBe cryptographyService.encrypt("nice string")
     }
 
+    test("should derive the same digest for the same data") {
+        cryptographyService.digest("00000000000") shouldBe cryptographyService.digest("00000000000")
+    }
+
+    test("should derive a different digest under a different key") {
+        val digest = cryptographyService.digest("00000000000")
+        every { configService.getRequiredString("secretKey") } returns "B".repeat(32)
+
+        cryptographyService.digest("00000000000") shouldNotBe digest
+    }
+
     test("should decrypt data stored by the legacy cbc scheme") {
         cryptographyService.decrypt("CXO8FLa/6rVbWlj32tJ+UA==") shouldBe "nice string"
     }

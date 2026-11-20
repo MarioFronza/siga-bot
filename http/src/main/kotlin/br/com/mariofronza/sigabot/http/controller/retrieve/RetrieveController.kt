@@ -13,13 +13,13 @@ class RetrieveController(
 
     @GetMapping
     fun retrieve(
-        @RequestParam year: String,
-        @RequestParam term: String
+        @RequestParam year: Int,
+        @RequestParam term: Int
     ): RetrieveOutput {
         return retrieveService.retrieve(
             RetrieveInput(
                 year = year,
-                term = term.toInt()
+                term = term
             )
         )
     }

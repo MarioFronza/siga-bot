@@ -17,6 +17,13 @@ subprojects {
         mavenCentral()
     }
 
+    // Hibernate needs open classes to build lazy-loading proxies.
+    extensions.configure<org.jetbrains.kotlin.allopen.gradle.AllOpenExtension> {
+        annotation("jakarta.persistence.Entity")
+        annotation("jakarta.persistence.MappedSuperclass")
+        annotation("jakarta.persistence.Embeddable")
+    }
+
     extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
         jvmToolchain(25)
         compilerOptions.freeCompilerArgs.add("-Xjsr305=strict")

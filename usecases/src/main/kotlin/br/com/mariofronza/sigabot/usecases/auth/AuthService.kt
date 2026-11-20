@@ -21,7 +21,7 @@ class AuthService(
             return mapOf(
                 "accessToken" to jwtUtil.generateAccessToken(user, requestUrl),
                 "refreshToken" to jwtUtil.generateRefreshToken(user, requestUrl),
-                "userId" to user.toUser().id.toString()
+                "userId" to user.toUser().externalId.toString()
             )
         } else {
             throw RuntimeException("Refresh token is missing")

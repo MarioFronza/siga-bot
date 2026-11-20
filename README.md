@@ -82,6 +82,14 @@ If a variable is missing, the container stops with `Missing required environment
 
 To expose it over HTTPS, point a Cloudflare Tunnel route at `http://<host>:8080`.
 
+## Database
+
+[Flyway](https://documentation.red-gate.com/flyway) creates and migrates the schema on startup from `persistence/src/main/resources/db/migration`, and Hibernate only validates the mappings against it (`ddl-auto=validate`), so a mismatch stops the app instead of silently altering tables.
+
+- Add a new `V<n>__<description>.sql` for every schema change. Never edit a migration that already ran, because Flyway checks their checksums.
+- `./gradlew test` runs every migration on a throwaway Postgres 18 through Testcontainers and validates the JPA mappings, so Docker must be running.
+- Flyway only takes over an empty database. It refuses to start on a schema created before it, with `Found non-empty schema(s) "public" but no schema history table`.
+
 Back up and restore Postgres:
 
 ```bash
@@ -119,10 +127,10 @@ Public. Signs up a student; every new user gets the `STUDENT` role.
 Response `201`:
 
 ```json
-{ "id": 1, "username": "", "email": "student@example.com" }
+{ "id": "01a1f973-13ad-7a5c-80df-bf421ada5df1", "username": "", "email": "student@example.com" }
 ```
 
-`username` stays empty until the first retrieve reads the name from SIGA.
+`id` is the public user id, a UUIDv7. The email is stored in lowercase, and a CPF can only be registered once, whatever its formatting. `username` stays empty until the first retrieve reads the name from SIGA.
 
 ### `POST /sessions`
 
@@ -135,8 +143,10 @@ Public. Logs in.
 Response `200` (`401` on wrong credentials):
 
 ```json
-{ "accessToken": "eyJ...", "refreshToken": "eyJ...", "userId": "1" }
+{ "accessToken": "eyJ...", "refreshToken": "eyJ...", "userId": "01a1f973-13ad-7a5c-80df-bf421ada5df1" }
 ```
+
+The app registers `userId` as the OneSignal external user id, which is how `/notifications/user/{id}` and new-grade pushes reach the device.
 
 ### `POST /auth/refresh-token`
 
@@ -151,7 +161,7 @@ Response `200`:
 ```json
 {
   "username": "Ana",
-  "periods": [{ "id": 1, "year": "2020", "term": 2 }]
+  "periods": [{ "year": 2020, "term": 2 }]
 }
 ```
 
@@ -161,14 +171,14 @@ Response `200`:
 
 ### `GET /dashboard/info`
 
-`STUDENT`. Lists the periods already stored for the user.
+`STUDENT`. Lists the periods the user has grades in, newest first.
 
 ```json
 {
   "username": "Ana",
   "periods": [
-    { "id": 1, "year": "2020", "term": 2 },
-    { "id": 2, "year": "2020", "term": 1 }
+    { "year": 2020, "term": 2 },
+    { "year": 2020, "term": 1 }
   ]
 }
 ```
@@ -179,7 +189,7 @@ Response `200`:
 
 ```json
 {
-  "period": { "id": 1, "year": "2020", "term": 2 },
+  "period": { "year": 2020, "term": 2 },
   "results": [
     {
       "finalGrade": 8.0,
@@ -199,15 +209,15 @@ Response `200`:
 Authenticated. The current user's notifications.
 
 ```json
-[{ "description": "Ana, você possui uma nota nova da matéria Banco de Dados", "entityId": 1 }]
+[{ "description": "Grades are out" }]
 ```
 
 ### `POST /notifications/all` and `POST /notifications/user/{id}`
 
-`ADMIN`. `/all` pushes a message to every device; `/user/{id}` pushes it to one user and stores it.
+`ADMIN`. `/all` pushes a message to every device; `/user/{id}` pushes it to one user, by public id, and stores it.
 
 ```json
-{ "description": "Grades are out", "entityId": 1 }
+{ "description": "Grades are out" }
 ```
 
 Response `200` with an empty body.

@@ -1,21 +1,22 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
-import br.com.mariofronza.sigabot.entity.group.Group
-import br.com.mariofronza.sigabot.entity.group.Period
-import br.com.mariofronza.sigabot.entity.user.SigaCredential
+import br.com.mariofronza.sigabot.entity.term.AcademicTerm
+import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.siga.course.CourseService
 import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
 import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
-import br.com.mariofronza.sigabot.usecases.siga.group.GroupService
-import br.com.mariofronza.sigabot.usecases.siga.group.PeriodService
+import br.com.mariofronza.sigabot.usecases.siga.section.ClassSectionService
+import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
+import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 import br.com.mariofronza.sigabot.usecases.notification.PushNotification
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveOutput
-import br.com.mariofronza.sigabot.usecases.siga.semester.SemesterResultsService
-import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectEnrollmentService
+import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
+import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectOfferingService
 import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectService
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.springframework.security.core.context.SecurityContextHolder
@@ -25,11 +26,11 @@ import org.springframework.stereotype.Service
 class RetrieveService(
     private val userInteractor: UserInteractor,
     private val courseService: CourseService,
-    private val periodService: PeriodService,
-    private val groupService: GroupService,
+    private val academicTermService: AcademicTermService,
+    private val classSectionService: ClassSectionService,
     private val subjectService: SubjectService,
-    private val subjectEnrollmentService: SubjectEnrollmentService,
-    private val semesterResultsService: SemesterResultsService,
+    private val subjectOfferingService: SubjectOfferingService,
+    private val enrollmentService: EnrollmentService,
     private val semesterResultsExtraction: SemesterResultsExtraction,
     private val socketNotification: PushNotification,
     private val cryptographyService: CryptographyService
@@ -53,66 +54,55 @@ class RetrieveService(
 
         println("User: ${user.username}")
 
-        val input = retrieveInput.toSemesterResultsExtractionInput(
-            generateSigaCredentialInput(user.sigaCredential)
-        )
+        // The scraper only speaks UDESC's SIGA so far.
+        val account = user.academicAccounts.first { it.institution.code == Institution.UDESC }
+        val institution = account.institution
+
+        val input = retrieveInput.toSemesterResultsExtractionInput(generateSigaCredentialInput(account))
 
         val semesterResultsList = semesterResultsExtraction.extract(input, completeExtraction = completeExtraction)
 
-        val course = courseService.createCourse(semesterResultsList.course)
+        val course = courseService.findOrCreate(institution, semesterResultsList.course)
         user = userInteractor.save(user.copy(fullName = semesterResultsList.studentName))
-        val periods = mutableListOf<Period>()
+        val academicTerms = mutableListOf<AcademicTerm>()
 
         semesterResultsList.semesterResultsPeriod.map { semesterResults ->
-            val pairPeriod = getPairPeriod(semesterResults.period)
-            val period = periodService.createPeriod(pairPeriod.first, pairPeriod.second)
-            periods.add(period)
+            val (year, term) = parseAcademicTerm(semesterResults.period)
+            val academicTerm = academicTermService.findOrCreate(institution, year, term)
+            academicTerms.add(academicTerm)
 
             semesterResults.semesterResults.map {
-                val group = groupService.createGroup(it.groupName, course, period)
-                addGroupToUser(user, group)
+                val classSection = classSectionService.findOrCreate(it.groupName, course, academicTerm)
+                val subject = subjectService.findOrCreate(institution, it.subjectName)
+                val subjectOffering = subjectOfferingService.findOrCreate(subject, classSection, it.courseLoad)
 
-                val subject = subjectService.createSubject(it.subjectName)
-                val subjectEnrollment = subjectEnrollmentService.createSubjectEnrollment(
-                    subject = subject,
-                    group = group
-                )
-
-                if (semesterResultsService.isThereAnyGradeUpdate(subjectEnrollment, user, it)) {
+                if (enrollmentService.hasGradeChanged(user, subjectOffering, it)) {
                     println("New grade update for ${user.username}")
                     notifyWatchers(user, subject.name)
                 } else {
                     println("User ${user.username} does not have any gradle update")
                 }
 
-                semesterResultsService.createSemesterResult(subjectEnrollment, user, it)
+                enrollmentService.record(user, subjectOffering, it)
             }
         }
 
         // return updated subject here
         return RetrieveOutput(
             username = user.username,
-            periods = periods
+            periods = academicTerms.map(AcademicTermOutput::from)
         )
     }
 
-    private fun getPairPeriod(periodText: String): Pair<String, Int> {
-        val (year, term) = periodText.split("/")
-        return Pair(year, term.toInt())
-    }
-
-    // TODO remove that method to a better place
-    private fun addGroupToUser(user: User, group: Group) {
-        if (user.groups.find { it.id == group.id } == null) {
-            user.groups.add(group)
-            userInteractor.save(user)
-        }
+    private fun parseAcademicTerm(text: String): Pair<Int, Int> {
+        val (year, term) = text.split("/")
+        return Pair(year.toInt(), term.toInt())
     }
 
     private fun notifyWatchers(user: User, subjectName: String) {
         val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
         println(message)
-        socketNotification.notifyUser(user.id!!, message)
+        socketNotification.notifyUser(user.externalId!!, message)
     }
 
     private fun getCurrentUser(): User {
@@ -120,10 +110,10 @@ class RetrieveService(
         return currentUser.toUser()
     }
 
-    private fun generateSigaCredentialInput(sigaCredential: SigaCredential): SigaCredentialInput {
+    private fun generateSigaCredentialInput(account: AcademicAccount): SigaCredentialInput {
         return SigaCredentialInput(
-            cpf = cryptographyService.decrypt(sigaCredential.cpfHash),
-            password = cryptographyService.decrypt(sigaCredential.passwordHash)
+            cpf = cryptographyService.decrypt(account.loginCiphertext),
+            password = cryptographyService.decrypt(account.passwordCiphertext)
         )
     }
 }

@@ -1,93 +1,82 @@
 package br.com.mariofronza.sigabot.usecases.user
 
-import br.com.mariofronza.sigabot.entity.user.SigaCredential
+import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
-import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserInput
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserOutput
 import br.com.mariofronza.sigabot.usecases.user.dto.SigaCredentialRequest
-import br.com.mariofronza.sigabot.usecases.user.dto.UserPeriodsOutput
-import br.com.mariofronza.sigabot.usecases.user.gateway.SigaCredentialInteractor
+import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionInteractor
+import br.com.mariofronza.sigabot.usecases.user.gateway.AcademicAccountInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
 class UserService(
     val userInteractor: UserInteractor,
     val roleService: RoleService,
-    val sigaCredentialInteractor: SigaCredentialInteractor,
+    val institutionInteractor: InstitutionInteractor,
+    val academicAccountInteractor: AcademicAccountInteractor,
     val bCryptPasswordEncoder: BCryptPasswordEncoder,
     val cryptographyService: CryptographyService
 ) {
 
     fun findAllActiveUsers(): List<User> {
-        return userInteractor.findAllActiveUsers()
+        return userInteractor.findAllActive()
     }
 
-    fun findById(id: Long): User {
-        return userInteractor.findById(id) ?: throw Exception("User not found")
-    }
-
-    fun findUserPeriods(): UserPeriodsOutput {
-        val user = getCurrentUser()
-
-        return UserPeriodsOutput(
-            username = user.username,
-            periods = user.groups
-                .map { it.period }
-                .sortedWith(compareBy({ it.year }, { it.term }))
-                .reversed()
-                .toSet()
-        )
+    fun findByExternalId(externalId: UUID): User {
+        return userInteractor.findByExternalId(externalId) ?: throw Exception("User not found")
     }
 
     fun createUser(request: CreateUserInput): CreateUserOutput {
-        val email = request.email
+        val email = request.email.lowercase()
         val cpf = request.sigaCredential.cpf
 
         if (userInteractor.findByEmail(email) != null) {
             throw Exception("User already exists")
         }
 
-        if (sigaCredentialInteractor.findByCpf(cpf) != null) {
+        val institution = institutionInteractor.findByCode(Institution.UDESC)
+            ?: throw Exception("Institution ${Institution.UDESC} not found")
+
+        if (academicAccountInteractor.existsByLoginDigest(institution, cpfDigest(cpf))) {
             throw Exception("Siga credential already exists")
         }
 
-        val role = roleService.findByName(STUDENT_ROLE) ?: roleService.createRole(STUDENT_ROLE)
-
-        val sigaCredential = generateEncryptedSigaCredential(request.sigaCredential)
+        val role = roleService.findByName(STUDENT_ROLE) ?: throw Exception("Role $STUDENT_ROLE not found")
 
         val user = userInteractor.save(
             User(
-                email = request.email,
+                email = email,
                 isActive = true,
                 passwordHash = bCryptPasswordEncoder.encode(request.password)!!,
                 roles = listOf(role),
-                sigaCredential = sigaCredential,
+                academicAccounts = listOf(encryptAcademicAccount(institution, request.sigaCredential)),
             )
         )
 
         return CreateUserOutput(
-            id = user.id!!,
+            id = user.externalId!!,
             username = user.username,
             email = user.email
         )
     }
 
-    private fun generateEncryptedSigaCredential(sigaCredentialRequest: SigaCredentialRequest): SigaCredential {
-        return SigaCredential(
-            cpfHash = cryptographyService.encrypt(sigaCredentialRequest.cpf),
-            passwordHash = cryptographyService.encrypt(sigaCredentialRequest.password)
+    // UDESC's SIGA logs in with the CPF, so the login digest ignores its formatting.
+    private fun encryptAcademicAccount(institution: Institution, request: SigaCredentialRequest): AcademicAccount {
+        return AcademicAccount(
+            institution = institution,
+            loginCiphertext = cryptographyService.encrypt(request.cpf),
+            loginDigest = cpfDigest(request.cpf),
+            passwordCiphertext = cryptographyService.encrypt(request.password)
         )
     }
 
-    private fun getCurrentUser(): User {
-        val currentUser = SecurityContextHolder.getContext().authentication!!.principal as UserDetailsImpl
-        return currentUser.toUser()
-    }
+    private fun cpfDigest(cpf: String) = cryptographyService.digest(cpf.filter(Char::isDigit))
 
     companion object {
         const val STUDENT_ROLE = "STUDENT"

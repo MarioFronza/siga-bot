@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.0](https://github.com/MarioFronza/siga-bot/compare/v3.0.0...v3.1.0) (2026-11-20)
+
+
+### Features
+
+* rotate and revoke refresh tokens, rate limit auth and bootstrap admins ([#53](https://github.com/MarioFronza/siga-bot/issues/53)) ([224a7a0](https://github.com/MarioFronza/siga-bot/commit/224a7a05629523664c85f171a6432f81bbef0618))
+* scale the grade sync with a job queue and an outbox ([#52](https://github.com/MarioFronza/siga-bot/issues/52)) ([21a6754](https://github.com/MarioFronza/siga-bot/commit/21a6754bd0670028dbe9baea31047f21f8e3b692))
+* sync the latest period SIGA lists instead of a configured one ([#51](https://github.com/MarioFronza/siga-bot/issues/51)) ([8d3b2d6](https://github.com/MarioFronza/siga-bot/commit/8d3b2d6f83c22d54d9900785128fd76253774c43))
+
 ## [3.0.0](https://github.com/MarioFronza/siga-bot/compare/v2.0.1...v3.0.0) (2026-11-20)
 
 

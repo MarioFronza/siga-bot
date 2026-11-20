@@ -14,4 +14,8 @@ dependencies {
     implementation(project(":extraction"))
     implementation(project(":usecases"))
     implementation(project(":integration"))
+    implementation(kotlin("reflect"))
+    implementation("org.springframework.boot:spring-boot-starter")
+
+    testImplementation("com.lemonappdev:konsist:0.18.1")
 }

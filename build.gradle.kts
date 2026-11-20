@@ -1,7 +1,6 @@
 plugins {
     kotlin("jvm") version "2.4.21" apply false
     kotlin("plugin.spring") version "2.4.21" apply false
-    kotlin("plugin.jpa") version "2.4.21" apply false
 }
 
 allprojects {
@@ -11,16 +10,9 @@ allprojects {
 subprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.kotlin.plugin.spring")
-    apply(plugin = "org.jetbrains.kotlin.plugin.jpa")
 
     repositories {
         mavenCentral()
-    }
-
-    extensions.configure<org.jetbrains.kotlin.allopen.gradle.AllOpenExtension> {
-        annotation("jakarta.persistence.Entity")
-        annotation("jakarta.persistence.MappedSuperclass")
-        annotation("jakarta.persistence.Embeddable")
     }
 
     extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
@@ -38,7 +30,7 @@ subprojects {
 
         "implementation"(kotlin("reflect"))
         "implementation"("org.springframework.boot:spring-boot-starter-webmvc")
-        "implementation"("org.springframework.boot:spring-boot-starter-data-jpa")
+        "implementation"("org.springframework.boot:spring-boot-data-commons")
         "implementation"("org.springframework.boot:spring-boot-starter-validation")
         "implementation"("org.springframework.boot:spring-boot-starter-security")
         "implementation"("tools.jackson.module:jackson-module-kotlin")

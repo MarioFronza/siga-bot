@@ -18,23 +18,25 @@ import br.com.mariofronza.sigabot.persistence.subject.gateway.SubjectOfferingRep
 import br.com.mariofronza.sigabot.persistence.subject.gateway.SubjectRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.term.gateway.AcademicTermRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.user.gateway.RoleRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.institution.entity.InstitutionJPA
 import br.com.mariofronza.sigabot.persistence.institution.gateway.InstitutionRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.institution.repository.InstitutionRepository
 import br.com.mariofronza.sigabot.persistence.user.gateway.AcademicAccountRepositoryInteractor
 import br.com.mariofronza.sigabot.persistence.user.gateway.UserRepositoryInteractor
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import br.com.mariofronza.sigabot.persistence.jooq.tables.references.INSTITUTIONS
+import org.jooq.DSLContext
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration
+import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+import org.springframework.boot.jooq.test.autoconfigure.JooqTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@JooqTest
+@ImportAutoConfiguration(FlywayAutoConfiguration::class)
 @Import(
     UserRepositoryInteractor::class,
     RoleRepositoryInteractor::class,
@@ -54,7 +56,7 @@ class RepositoryInteractorsTest : FunSpec() {
     @Autowired lateinit var roles: RoleRepositoryInteractor
     @Autowired lateinit var accounts: AcademicAccountRepositoryInteractor
     @Autowired lateinit var institutions: InstitutionRepositoryInteractor
-    @Autowired lateinit var institutionRepository: InstitutionRepository
+    @Autowired lateinit var dsl: DSLContext
     @Autowired lateinit var notifications: NotificationRepositoryInteractor
     @Autowired lateinit var courses: CourseRepositoryInteractor
     @Autowired lateinit var academicTerms: AcademicTermRepositoryInteractor
@@ -63,11 +65,16 @@ class RepositoryInteractorsTest : FunSpec() {
     @Autowired lateinit var subjectOfferings: SubjectOfferingRepositoryInteractor
     @Autowired lateinit var enrollments: EnrollmentRepositoryInteractor
 
-    private fun udesc() = institutions.findByCode(Institution.UDESC)!!
+    private fun udesc() = institutions.findByCode(Institution.UDESC).shouldNotBeNull()
 
-    private fun ufpr() = institutionRepository
-        .save(InstitutionJPA(code = "ufpr", name = "Universidade Federal do Paraná", gradeScaleMax = 100.toBigDecimal()))
-        .toEntity()
+    private fun ufpr(): Institution {
+        dsl.insertInto(INSTITUTIONS)
+            .set(INSTITUTIONS.CODE, "ufpr")
+            .set(INSTITUTIONS.NAME, "Universidade Federal do Paraná")
+            .set(INSTITUTIONS.GRADE_SCALE_MAX, 100.toBigDecimal())
+            .execute()
+        return institutions.findByCode("ufpr").shouldNotBeNull()
+    }
 
     private fun newUser(
         digest: ByteArray = byteArrayOf(1, 2, 3),
@@ -78,7 +85,7 @@ class RepositoryInteractorsTest : FunSpec() {
             isActive = true,
             email = email,
             passwordHash = "hash",
-            roles = listOf(roles.findByName("STUDENT")!!),
+            roles = listOf(roles.findByName("STUDENT").shouldNotBeNull()),
             academicAccounts = listOf(
                 AcademicAccount(
                     institution = institution,
@@ -112,7 +119,59 @@ class RepositoryInteractorsTest : FunSpec() {
         extension(SpringExtension())
 
         test("generates a time-ordered external id for a new user") {
-            newUser().externalId!!.version() shouldBe 7
+            newUser().externalId.shouldNotBeNull().version() shouldBe 7
+        }
+
+        test("loads a user with roles and academic accounts") {
+            val saved = newUser(digest = byteArrayOf(4, 5, 6))
+
+            val loaded = users.findByEmail("student@test.com").shouldNotBeNull()
+
+            loaded.externalId shouldBe saved.externalId
+            loaded.roles.map { it.name } shouldBe listOf("STUDENT")
+            loaded.academicAccounts.single().loginDigest shouldBe byteArrayOf(4, 5, 6)
+            loaded.academicAccounts.single().loginCiphertext shouldBe "login"
+            loaded.academicAccounts.single().institution.code shouldBe Institution.UDESC
+        }
+
+        test("updates an existing user") {
+            val saved = newUser()
+            users.save(saved.copy(fullName = "Ana Souza", isActive = false))
+
+            val loaded = users.findByExternalId(saved.externalId.shouldNotBeNull()).shouldNotBeNull()
+            loaded.fullName shouldBe "Ana Souza"
+            loaded.isActive shouldBe false
+        }
+
+        test("lists only active users") {
+            val active = newUser()
+            users.save(newUser(digest = byteArrayOf(7), email = "gone@test.com").copy(isActive = false))
+
+            users.findAllActive().map { it.externalId } shouldBe listOf(active.externalId)
+        }
+
+        test("finds the catalog rows of a term") {
+            val user = newUser()
+            val offering = enroll(user, 2026, 1).subjectOffering
+            val section = offering.classSection
+
+            courses.findByName(udesc(), section.course.name).shouldNotBeNull().id shouldBe section.course.id
+            academicTerms.findByYearAndTerm(udesc(), 2026, 1).shouldNotBeNull().id shouldBe section.academicTerm.id
+            classSections.find("ESO-1", section.course, section.academicTerm).shouldNotBeNull().id shouldBe section.id
+            subjectOfferings.find(offering.subject, section).shouldNotBeNull().courseLoad shouldBe 72
+        }
+
+        test("lists the enrollments of a term with their offering") {
+            val user = newUser()
+            enroll(user, 2026, 1)
+            enroll(user, 2026, 2)
+
+            val enrollment = enrollments.findAll(user, 2026, 1).single()
+            enrollment.subjectOffering.subject.name shouldBe "Banco de Dados 2026/1"
+            enrollment.subjectOffering.classSection.code shouldBe "ESO-1"
+            enrollment.subjectOffering.classSection.academicTerm.term shouldBe 1
+            enrollment.finalGrade shouldBe 8.5
+            enrollment.attendancePercentage shouldBe 95.0
         }
 
         test("finds an academic account by its login digest within the institution") {
@@ -133,7 +192,7 @@ class RepositoryInteractorsTest : FunSpec() {
             subjects.save(Subject(institution = udesc(), name = "Cálculo I"))
             val atUfpr = subjects.save(Subject(institution = ufpr(), name = "Cálculo I"))
 
-            subjects.findByName(atUfpr.institution, "Cálculo I")!!.id shouldBe atUfpr.id
+            subjects.findByName(atUfpr.institution, "Cálculo I").shouldNotBeNull().id shouldBe atUfpr.id
         }
 
         test("stores the notification message") {
@@ -166,7 +225,7 @@ class RepositoryInteractorsTest : FunSpec() {
             val enrollment = enroll(user, 2026, 1)
             enrollments.save(enrollment.copy(finalGrade = 9.75))
 
-            enrollments.find(user, enrollment.subjectOffering)!!.finalGrade shouldBe 9.75
+            enrollments.find(user, enrollment.subjectOffering).shouldNotBeNull().finalGrade shouldBe 9.75
         }
     }
 }

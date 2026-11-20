@@ -5,11 +5,12 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.flywaydb.core.Flyway
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration
+import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+import org.springframework.boot.jooq.test.autoconfigure.JooqTest
 
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@JooqTest
+@ImportAutoConfiguration(FlywayAutoConfiguration::class)
 class SchemaTest : FunSpec() {
 
     @Autowired
@@ -18,7 +19,7 @@ class SchemaTest : FunSpec() {
     init {
         extension(SpringExtension())
 
-        test("migrations apply and match the JPA mappings") {
+        test("migrations apply") {
             flyway.info().pending().size shouldBe 0
         }
     }

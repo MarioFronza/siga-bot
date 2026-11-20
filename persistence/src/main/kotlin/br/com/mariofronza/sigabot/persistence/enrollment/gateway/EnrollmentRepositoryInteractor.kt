@@ -1,5 +1,9 @@
 package br.com.mariofronza.sigabot.persistence.enrollment.gateway
 
+import br.com.mariofronza.sigabot.entity.enrollment.Grade
+import br.com.mariofronza.sigabot.entity.enrollment.Attendance
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.persistence.user.gateway.userKey
 import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.entity.course.Course
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
@@ -30,7 +34,7 @@ class EnrollmentRepositoryInteractor(
     private val dsl: DSLContext,
 ) : EnrollmentInteractor {
 
-    override fun findAll(user: User, year: Int, term: Int): List<Enrollment> =
+    override fun findAll(user: User, period: AcademicPeriod): List<Enrollment> =
         dsl.select(ENROLLMENTS, SUBJECT_OFFERINGS, SUBJECTS, CLASS_SECTIONS, COURSES, ACADEMIC_TERMS, INSTITUTIONS)
             .from(ENROLLMENTS)
             .join(SUBJECT_OFFERINGS).on(SUBJECT_OFFERINGS.ID.eq(ENROLLMENTS.SUBJECT_OFFERING_ID))
@@ -39,7 +43,7 @@ class EnrollmentRepositoryInteractor(
             .join(COURSES).on(COURSES.ID.eq(CLASS_SECTIONS.COURSE_ID))
             .join(ACADEMIC_TERMS).on(ACADEMIC_TERMS.ID.eq(CLASS_SECTIONS.ACADEMIC_TERM_ID))
             .join(INSTITUTIONS).on(INSTITUTIONS.ID.eq(ACADEMIC_TERMS.INSTITUTION_ID))
-            .where(ENROLLMENTS.USER_ID.eq(user.id).and(ACADEMIC_TERMS.YEAR.eq(year)).and(ACADEMIC_TERMS.TERM.eq(term)))
+            .where(ENROLLMENTS.USER_ID.eq(userKey(user.id)).and(ACADEMIC_TERMS.YEAR.eq(period.year)).and(ACADEMIC_TERMS.TERM.eq(period.term)))
             .orderBy(ENROLLMENTS.ID)
             .fetch { (enrollment, offering, subject, section, course, academicTerm, institution) ->
                 val owner = institution.toInstitution()
@@ -47,7 +51,7 @@ class EnrollmentRepositoryInteractor(
                     id = section.id,
                     code = section.code,
                     course = Course(id = course.id, institution = owner, name = course.name),
-                    academicTerm = AcademicTerm(id = academicTerm.id, institution = owner, year = academicTerm.year, term = academicTerm.term),
+                    academicTerm = AcademicTerm(id = academicTerm.id, institution = owner, period = AcademicPeriod(academicTerm.year, academicTerm.term)),
                 )
                 enrollment.toEnrollment(
                     user,
@@ -62,7 +66,7 @@ class EnrollmentRepositoryInteractor(
 
     override fun find(user: User, subjectOffering: SubjectOffering): Enrollment? =
         dsl.selectFrom(ENROLLMENTS)
-            .where(ENROLLMENTS.USER_ID.eq(user.id).and(ENROLLMENTS.SUBJECT_OFFERING_ID.eq(subjectOffering.id)))
+            .where(ENROLLMENTS.USER_ID.eq(userKey(user.id)).and(ENROLLMENTS.SUBJECT_OFFERING_ID.eq(subjectOffering.id)))
             .fetchOne()
             ?.toEnrollment(user, subjectOffering)
 
@@ -70,9 +74,9 @@ class EnrollmentRepositoryInteractor(
 
     private fun update(enrollment: Enrollment): Enrollment {
         dsl.update(ENROLLMENTS)
-            .set(ENROLLMENTS.FINAL_GRADE, BigDecimal.valueOf(enrollment.finalGrade))
+            .set(ENROLLMENTS.FINAL_GRADE, BigDecimal.valueOf(enrollment.finalGrade.value))
             .set(ENROLLMENTS.ABSENCES, enrollment.absences)
-            .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, BigDecimal.valueOf(enrollment.attendancePercentage))
+            .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, BigDecimal.valueOf(enrollment.attendance.percentage))
             .set(ENROLLMENTS.RESULT, enrollment.result)
             .set(ENROLLMENTS.UPDATED_AT, currentOffsetDateTime())
             .where(ENROLLMENTS.ID.eq(enrollment.id))
@@ -82,11 +86,11 @@ class EnrollmentRepositoryInteractor(
 
     private fun insert(enrollment: Enrollment): Enrollment {
         val id = dsl.insertInto(ENROLLMENTS)
-            .set(ENROLLMENTS.USER_ID, enrollment.user.id)
+            .set(ENROLLMENTS.USER_ID, userKey(enrollment.user.id))
             .set(ENROLLMENTS.SUBJECT_OFFERING_ID, enrollment.subjectOffering.id)
-            .set(ENROLLMENTS.FINAL_GRADE, BigDecimal.valueOf(enrollment.finalGrade))
+            .set(ENROLLMENTS.FINAL_GRADE, BigDecimal.valueOf(enrollment.finalGrade.value))
             .set(ENROLLMENTS.ABSENCES, enrollment.absences)
-            .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, BigDecimal.valueOf(enrollment.attendancePercentage))
+            .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, BigDecimal.valueOf(enrollment.attendance.percentage))
             .set(ENROLLMENTS.RESULT, enrollment.result)
             .returningResult(ENROLLMENTS.ID)
             .fetchSingle { it.value1() }
@@ -97,9 +101,9 @@ class EnrollmentRepositoryInteractor(
         id = id,
         user = user,
         subjectOffering = subjectOffering,
-        finalGrade = finalGrade?.toDouble() ?: 0.0,
+        finalGrade = Grade(finalGrade?.toDouble() ?: 0.0),
         absences = notNull(ENROLLMENTS.ABSENCES),
-        attendancePercentage = attendancePercentage?.toDouble() ?: 0.0,
+        attendance = Attendance(attendancePercentage?.toDouble() ?: 0.0),
         result = result,
     )
 }

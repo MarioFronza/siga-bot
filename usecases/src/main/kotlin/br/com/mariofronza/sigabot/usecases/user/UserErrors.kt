@@ -1,9 +1,9 @@
 package br.com.mariofronza.sigabot.usecases.user
 
-import java.util.UUID
+import br.com.mariofronza.sigabot.entity.user.UserId
 
 class EmailAlreadyRegisteredException : RuntimeException("User already exists")
 
 class AcademicAccountAlreadyRegisteredException : RuntimeException("Siga credential already exists")
 
-class UserNotFoundException(externalId: UUID) : RuntimeException("User $externalId not found")
+class UserNotFoundException(id: UserId) : RuntimeException("User $id not found")

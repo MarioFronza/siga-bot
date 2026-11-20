@@ -1,5 +1,8 @@
 package br.com.mariofronza.sigabot.usecases.siga.enrollment
 
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.entity.enrollment.Grade
+import br.com.mariofronza.sigabot.entity.enrollment.Attendance
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
 import br.com.mariofronza.sigabot.entity.user.User
@@ -12,12 +15,12 @@ class EnrollmentService(
     private val enrollmentInteractor: EnrollmentInteractor,
 ) {
 
-    fun findAll(user: User, year: Int, term: Int): List<Enrollment> =
-        enrollmentInteractor.findAll(user, year, term)
+    fun findAll(user: User, period: AcademicPeriod): List<Enrollment> =
+        enrollmentInteractor.findAll(user, period)
 
     fun hasGradeChanged(user: User, subjectOffering: SubjectOffering, result: SemesterResultOutput): Boolean {
         val enrollment = enrollmentInteractor.find(user, subjectOffering) ?: return false
-        return result.finalGrade != enrollment.finalGrade
+        return Grade(result.finalGrade) != enrollment.finalGrade
     }
 
     fun record(user: User, subjectOffering: SubjectOffering, result: SemesterResultOutput): Enrollment {
@@ -26,9 +29,9 @@ class EnrollmentService(
                 id = enrollmentInteractor.find(user, subjectOffering)?.id,
                 user = user,
                 subjectOffering = subjectOffering,
-                finalGrade = result.finalGrade,
+                finalGrade = Grade(result.finalGrade),
                 absences = result.absencesCount,
-                attendancePercentage = result.attendancePercentage,
+                attendance = Attendance(result.attendancePercentage),
                 result = result.result,
             )
         )

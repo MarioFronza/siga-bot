@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.http.security
 
+import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
 import io.kotest.core.spec.style.FunSpec
@@ -10,7 +11,7 @@ class UserDetailsImplTest : FunSpec({
     test("grants one authority per user role") {
         val user = User(
             isActive = true,
-            email = "student@test.com",
+            email = Email.of("student@test.com"),
             passwordHash = "hash",
             roles = listOf(Role(name = "STUDENT")),
             academicAccounts = emptyList()

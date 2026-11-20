@@ -16,9 +16,9 @@ data class EnrollmentOutput(
             subject = enrollment.subjectOffering.subject.name,
             classSection = enrollment.subjectOffering.classSection.code,
             courseLoad = enrollment.subjectOffering.courseLoad,
-            finalGrade = enrollment.finalGrade,
+            finalGrade = enrollment.finalGrade.value,
             absences = enrollment.absences,
-            attendancePercentage = enrollment.attendancePercentage,
+            attendancePercentage = enrollment.attendance.percentage,
             result = enrollment.result,
         )
     }

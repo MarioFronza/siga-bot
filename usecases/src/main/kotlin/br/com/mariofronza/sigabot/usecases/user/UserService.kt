@@ -12,7 +12,9 @@ import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionIntera
 import br.com.mariofronza.sigabot.usecases.user.gateway.AcademicAccountInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.springframework.stereotype.Service
-import java.util.UUID
+import br.com.mariofronza.sigabot.entity.user.Cpf
+import br.com.mariofronza.sigabot.entity.user.Email
+import br.com.mariofronza.sigabot.entity.user.UserId
 
 @Service
 class UserService(
@@ -28,13 +30,11 @@ class UserService(
         return userInteractor.findAllActive()
     }
 
-    fun findByExternalId(externalId: UUID): User {
-        return userInteractor.findByExternalId(externalId) ?: throw UserNotFoundException(externalId)
-    }
+    fun findById(id: UserId): User = userInteractor.findById(id) ?: throw UserNotFoundException(id)
 
     fun createUser(request: CreateUserInput): UserOutput {
-        val email = request.email.lowercase()
-        val cpf = request.sigaCredential.cpf
+        val email = Email.of(request.email)
+        val cpf = Cpf.of(request.sigaCredential.cpf)
 
         if (userInteractor.findByEmail(email) != null) {
             throw EmailAlreadyRegisteredException()
@@ -43,7 +43,7 @@ class UserService(
         val institution = institutionInteractor.findByCode(Institution.UDESC)
             ?: throw Exception("Institution ${Institution.UDESC} not found")
 
-        if (academicAccountInteractor.existsByLoginDigest(institution, cpfDigest(cpf))) {
+        if (academicAccountInteractor.existsByLoginDigest(institution, secretCipher.digest(cpf.value))) {
             throw AcademicAccountAlreadyRegisteredException()
         }
 
@@ -66,12 +66,10 @@ class UserService(
         return AcademicAccount(
             institution = institution,
             loginCiphertext = secretCipher.encrypt(request.cpf),
-            loginDigest = cpfDigest(request.cpf),
+            loginDigest = secretCipher.digest(Cpf.of(request.cpf).value),
             passwordCiphertext = secretCipher.encrypt(request.password)
         )
     }
-
-    private fun cpfDigest(cpf: String) = secretCipher.digest(cpf.filter(Char::isDigit))
 
     companion object {
         const val STUDENT_ROLE = "STUDENT"

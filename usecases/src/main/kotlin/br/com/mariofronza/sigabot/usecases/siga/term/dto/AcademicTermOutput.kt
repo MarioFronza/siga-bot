@@ -7,6 +7,6 @@ data class AcademicTermOutput(
     val term: Int,
 ) {
     companion object {
-        fun from(academicTerm: AcademicTerm) = AcademicTermOutput(year = academicTerm.year, term = academicTerm.term)
+        fun from(academicTerm: AcademicTerm) = AcademicTermOutput(year = academicTerm.period.year, term = academicTerm.period.term)
     }
 }

@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.http.controller.me
 
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.retrieve.RetrieveService
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
@@ -40,7 +41,7 @@ class MeController(
         @AuthenticationPrincipal principal: UserDetailsImpl,
         @PathVariable year: Int,
         @PathVariable term: Int,
-    ): List<EnrollmentOutput> = enrollmentService.findAll(principal.toUser(), year, term).map(EnrollmentOutput::from)
+    ): List<EnrollmentOutput> = enrollmentService.findAll(principal.toUser(), AcademicPeriod(year, term)).map(EnrollmentOutput::from)
 
     @PostMapping("/syncs")
     fun sync(@AuthenticationPrincipal principal: UserDetailsImpl, @RequestBody input: SyncInput): List<AcademicTermOutput> {

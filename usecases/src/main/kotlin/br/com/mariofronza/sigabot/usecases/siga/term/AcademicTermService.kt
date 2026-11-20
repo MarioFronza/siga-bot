@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.siga.term
 
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.institution.Institution
 import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.user.User
@@ -13,8 +14,7 @@ class AcademicTermService(
 
     fun findAllEnrolledBy(user: User): List<AcademicTerm> = academicTermInteractor.findAllEnrolledBy(user)
 
-    fun findOrCreate(institution: Institution, year: Int, term: Int): AcademicTerm {
-        return academicTermInteractor.findByYearAndTerm(institution, year, term)
-            ?: academicTermInteractor.save(AcademicTerm(institution = institution, year = year, term = term))
-    }
+    fun findOrCreate(institution: Institution, period: AcademicPeriod): AcademicTerm =
+        academicTermInteractor.findByPeriod(institution, period)
+            ?: academicTermInteractor.save(AcademicTerm(institution = institution, period = period))
 }

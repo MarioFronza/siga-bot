@@ -1,5 +1,9 @@
 package br.com.mariofronza.sigabot.persistence.user.gateway
 
+import org.jooq.impl.DSL.field
+import org.jooq.Field
+import br.com.mariofronza.sigabot.entity.user.UserId
+import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Role
@@ -18,7 +22,9 @@ import org.jooq.impl.DSL.multiset
 import org.jooq.impl.DSL.select
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.util.UUID
+
+internal fun userKey(id: UserId): Field<Long?> =
+    field(select(USERS.ID).from(USERS).where(USERS.EXTERNAL_ID.eq(id.value)))
 
 @Component
 @Transactional
@@ -28,11 +34,14 @@ class UserRepositoryInteractor(
 
     override fun findAllActive(): List<User> = fetch(USERS.ACTIVE.isTrue)
 
-    override fun findByExternalId(externalId: UUID): User? = fetch(USERS.EXTERNAL_ID.eq(externalId)).singleOrNull()
+    override fun findById(id: UserId): User? = fetch(USERS.EXTERNAL_ID.eq(id.value)).singleOrNull()
 
-    override fun findByEmail(email: String): User? = fetch(USERS.EMAIL.eq(email)).singleOrNull()
+    override fun findByEmail(email: Email): User? = fetch(USERS.EMAIL.eq(email.value)).singleOrNull()
 
-    override fun save(user: User): User = user.id?.let { update(user) } ?: insert(user)
+    override fun save(user: User): User {
+        if (dsl.fetchExists(USERS, USERS.EXTERNAL_ID.eq(user.id.value))) update(user) else insert(user)
+        return user
+    }
 
     private fun fetch(condition: Condition): List<User> =
         dsl.select(
@@ -64,37 +73,36 @@ class UserRepositoryInteractor(
             .orderBy(USERS.ID)
             .fetch { (row, roles, accounts) ->
                 User(
-                    id = row.id,
-                    externalId = row.externalId,
+                    id = UserId(row.notNull(USERS.EXTERNAL_ID)),
                     isActive = row.notNull(USERS.ACTIVE),
                     fullName = row.notNull(USERS.FULL_NAME),
-                    email = row.email,
+                    email = Email.of(row.email),
                     passwordHash = row.passwordHash,
                     roles = roles,
                     academicAccounts = accounts,
                 )
             }
 
-    private fun update(user: User): User {
+    private fun update(user: User) {
         dsl.update(USERS)
-            .set(USERS.EMAIL, user.email)
+            .set(USERS.EMAIL, user.email.value)
             .set(USERS.PASSWORD_HASH, user.passwordHash)
             .set(USERS.FULL_NAME, user.fullName)
             .set(USERS.ACTIVE, user.isActive)
             .set(USERS.UPDATED_AT, currentOffsetDateTime())
-            .where(USERS.ID.eq(user.id))
+            .where(USERS.EXTERNAL_ID.eq(user.id.value))
             .execute()
-        return user
     }
 
-    private fun insert(user: User): User {
-        val (id, externalId) = dsl.insertInto(USERS)
-            .set(USERS.EMAIL, user.email)
+    private fun insert(user: User) {
+        val id = dsl.insertInto(USERS)
+            .set(USERS.EXTERNAL_ID, user.id.value)
+            .set(USERS.EMAIL, user.email.value)
             .set(USERS.PASSWORD_HASH, user.passwordHash)
             .set(USERS.FULL_NAME, user.fullName)
             .set(USERS.ACTIVE, user.isActive)
-            .returningResult(USERS.ID, USERS.EXTERNAL_ID)
-            .fetchSingle()
+            .returning(USERS.ID)
+            .fetchSingle { it.id }
         user.roles.forEach {
             dsl.insertInto(USER_ROLES).set(USER_ROLES.USER_ID, id).set(USER_ROLES.ROLE_ID, it.id).execute()
         }
@@ -107,6 +115,5 @@ class UserRepositoryInteractor(
                 .set(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT, it.passwordCiphertext)
                 .execute()
         }
-        return user.copy(id = id, externalId = externalId)
     }
 }

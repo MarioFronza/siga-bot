@@ -66,7 +66,6 @@ class UserService(
         )
     }
 
-    // UDESC's SIGA logs in with the CPF, so the login digest ignores its formatting.
     private fun encryptAcademicAccount(institution: Institution, request: SigaCredentialRequest): AcademicAccount {
         return AcademicAccount(
             institution = institution,

@@ -1,6 +1,6 @@
 package br.com.mariofronza.sigabot.infrastructure.crypto
 
-import br.com.mariofronza.sigabot.usecases.credential.gateway.PasswordHasher
+import br.com.mariofronza.sigabot.usecases.identity.port.PasswordHasher
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Component
 

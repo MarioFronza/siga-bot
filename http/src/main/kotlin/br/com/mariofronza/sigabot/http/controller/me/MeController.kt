@@ -1,15 +1,14 @@
 package br.com.mariofronza.sigabot.http.controller.me
 
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.http.controller.EnrollmentResponse
+import br.com.mariofronza.sigabot.http.controller.PeriodResponse
+import br.com.mariofronza.sigabot.http.controller.UserResponse
 import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
-import br.com.mariofronza.sigabot.usecases.retrieve.RetrieveService
-import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
-import br.com.mariofronza.sigabot.http.controller.me.SyncInput
-import br.com.mariofronza.sigabot.http.controller.me.SyncScope
-import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
-import br.com.mariofronza.sigabot.usecases.siga.enrollment.dto.EnrollmentOutput
-import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
-import br.com.mariofronza.sigabot.usecases.user.dto.UserOutput
+import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
+import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
+import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import org.springframework.http.HttpStatus.BAD_REQUEST
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -23,30 +22,33 @@ import org.springframework.web.server.ResponseStatusException
 @RestController
 @RequestMapping("/api/{version}/me", version = "v1")
 class MeController(
-    private val enrollmentService: EnrollmentService,
-    private val retrieveService: RetrieveService,
+    private val listEnrolledPeriods: ListEnrolledPeriods,
+    private val listPeriodEnrollments: ListPeriodEnrollments,
+    private val syncStudentGrades: SyncStudentGrades,
 ) {
 
     @GetMapping
-    fun show(@AuthenticationPrincipal principal: UserDetailsImpl) = UserOutput.from(principal.toUser())
+    fun show(@AuthenticationPrincipal principal: UserDetailsImpl) = UserResponse.from(principal.toUser())
 
     @GetMapping("/terms")
-    fun terms(@AuthenticationPrincipal principal: UserDetailsImpl): List<AcademicTermOutput> =
-        enrollmentService.findPeriods(principal.toUser().id).map(AcademicTermOutput::from)
+    fun terms(@AuthenticationPrincipal principal: UserDetailsImpl): List<PeriodResponse> =
+        listEnrolledPeriods(principal.toUser().id).map(PeriodResponse::from)
 
     @GetMapping("/terms/{year}/{term}/enrollments")
     fun enrollments(
         @AuthenticationPrincipal principal: UserDetailsImpl,
         @PathVariable year: Int,
         @PathVariable term: Int,
-    ): List<EnrollmentOutput> = enrollmentService.findAll(principal.toUser().id, AcademicPeriod(year, term)).map(EnrollmentOutput::from)
+    ): List<EnrollmentResponse> = listPeriodEnrollments(principal.toUser().id, AcademicPeriod(year, term)).map(EnrollmentResponse::from)
 
     @PostMapping("/syncs")
-    fun sync(@AuthenticationPrincipal principal: UserDetailsImpl, @RequestBody input: SyncInput): List<AcademicTermOutput> {
-        val user = principal.toUser()
+    fun sync(@AuthenticationPrincipal principal: UserDetailsImpl, @RequestBody input: SyncInput): List<PeriodResponse> =
+        syncStudentGrades(principal.toUser(), scopeOf(input)).map(PeriodResponse::from)
+
+    private fun scopeOf(input: SyncInput): SyncScope {
         val (scope, year, term) = input
-        if (scope == SyncScope.FULL) return retrieveService.fullRetrieve(user)
+        if (scope == SyncInput.Scope.FULL) return SyncScope.Everything
         if (year == null || term == null) throw ResponseStatusException(BAD_REQUEST, "year and term are required to sync one term")
-        return retrieveService.retrieveForUser(RetrieveInput(year = year, term = term), user)
+        return SyncScope.Period(AcademicPeriod(year, term))
     }
 }

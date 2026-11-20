@@ -1,6 +1,6 @@
 package br.com.mariofronza.sigabot.infrastructure.crypto
 
-import br.com.mariofronza.sigabot.usecases.credential.gateway.SecretCipher
+import br.com.mariofronza.sigabot.usecases.identity.port.SecretCipher
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.security.SecureRandom

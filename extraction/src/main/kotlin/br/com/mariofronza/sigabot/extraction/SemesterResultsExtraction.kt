@@ -1,5 +1,8 @@
 package br.com.mariofronza.sigabot.extraction
 
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaPeriodNotFoundException
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse
 import br.com.mariofronza.sigabot.extraction.connector.Connector
 import br.com.mariofronza.sigabot.extraction.connector.RetrofitSigaConnector
@@ -13,9 +16,8 @@ import br.com.mariofronza.sigabot.extraction.parser.dashboard.DashboardParser
 import br.com.mariofronza.sigabot.extraction.parser.periods.PeriodsParser
 import br.com.mariofronza.sigabot.extraction.parser.prelogin.CookieParser
 import br.com.mariofronza.sigabot.extraction.parser.semesterresults.SemesterResultsParser
-import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsExtraction
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultsExtractionInput
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultsExtractionOutput
+import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionInput
+import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionOutput
 import org.springframework.stereotype.Component
 
 @Component
@@ -29,7 +31,7 @@ class SemesterResultsExtraction(
     private val dashboardParser: DashboardParser,
     private val periodsParser: PeriodsParser,
     private val semesterResultsParser: SemesterResultsParser,
-) : SemesterResultsExtraction {
+) {
 
     private val retrofitSigaConnection: RetrofitSigaConnector
 
@@ -38,7 +40,7 @@ class SemesterResultsExtraction(
         retrofitSigaConnection = connector.createConnection()
     }
 
-    override fun extract(
+    fun extract(
         extractSemesterResultsInput: SemesterResultsExtractionInput,
         completeExtraction: Boolean
     ): SemesterResultsExtractionOutput {
@@ -64,7 +66,7 @@ class SemesterResultsExtraction(
 
         return SemesterResultsExtractionOutput(
             studentName = studentName,
-            course = semesterResultsOutput.first().course,
+            course = semesterResultsOutput.firstOrNull()?.course ?: throw SigaLayoutChangedException("SIGA listed no periods"),
             semesterResultsPeriod = semesterResultsOutput.map { it.toSemesterResultsPeriod() }
         )
     }
@@ -74,7 +76,7 @@ class SemesterResultsExtraction(
             is StepResponse.StepSuccess<*> -> {
                 cookieParser.extractAction(response.payload.toString())
             }
-            else -> throw Exception("Cookie parser unexpected error")
+            else -> throw SigaUnavailableException("SIGA did not open a session")
         }
     }
 
@@ -86,7 +88,7 @@ class SemesterResultsExtraction(
             is StepResponse.StepSuccess<*> -> {
                 response.payload.toString()
             }
-            else -> throw Exception("Dashboard parser unexpected error")
+            else -> throw SigaUnavailableException("SIGA did not answer the login")
         }
         extractorContext.url = dashboardParser.extractDashboardSemesterResultsUrl(payload)
         return dashboardParser.extractStudentName(payload)
@@ -99,7 +101,7 @@ class SemesterResultsExtraction(
                 is StepResponse.StepSuccess<*> -> {
                     dashboardParser.extractSemesterResultsUrl(response.payload.toString())
                 }
-                else -> throw Exception("Semester results parser unexpected error")
+                else -> throw SigaUnavailableException("SIGA did not open the semester results")
             }
     }
 
@@ -109,7 +111,7 @@ class SemesterResultsExtraction(
             is StepResponse.StepSuccess<*> -> {
                 periodsParser.extractPeriods(response.payload.toString())
             }
-            else -> throw Exception("Periods parser unexpected error")
+            else -> throw SigaUnavailableException("SIGA did not list the periods")
         }
     }
 
@@ -122,11 +124,11 @@ class SemesterResultsExtraction(
             is StepResponse.StepSuccess<*> -> {
                 semesterResultsParser.extractSemesterResults(response.payload.toString(), periodIdentified)
             }
-            else -> throw Exception("Semester results parser unexpected error")
+            else -> throw SigaUnavailableException("SIGA did not answer the period $periodIdentified")
         }
     }
 
     private fun getPeriodSigaIdentified(year: String, term: Int, periods: Map<String, String>): List<String> {
-        return listOf(periods["$year/$term"] ?: throw Exception("Invalid Period"))
+        return listOf(periods["$year/$term"] ?: throw SigaPeriodNotFoundException("$year/$term"))
     }
 }

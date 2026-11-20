@@ -3,9 +3,11 @@ package br.com.mariofronza.sigabot.extraction
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepError
 import br.com.mariofronza.sigabot.extraction.extractor.ExtractorContext
 import br.com.mariofronza.sigabot.extraction.extractor.prelogin.CookieExtractor
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.PeriodInput
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultsExtractionInput
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
+import br.com.mariofronza.sigabot.extraction.dto.PeriodInput
+import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionInput
+import br.com.mariofronza.sigabot.extraction.dto.SigaCredentialInput
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import io.mockk.every
@@ -29,5 +31,17 @@ class SemesterResultsExtractionTest : FunSpec({
         repeat(2) { runCatching { extraction.extract(input, completeExtraction = false) } }
 
         contexts[0] shouldNotBeSameInstanceAs contexts[1]
+    }
+
+    test("reports SIGA as unavailable when a step does not succeed") {
+        val cookieExtractor: CookieExtractor = mockk()
+        every { cookieExtractor.execute(any(), any()) } returns StepError("503")
+        val extraction = SemesterResultsExtraction(
+            cookieExtractor,
+            mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), mockk()
+        )
+        val input = SemesterResultsExtractionInput(SigaCredentialInput("cpf", "password"), PeriodInput("2026", 2))
+
+        shouldThrow<SigaUnavailableException> { extraction.extract(input, completeExtraction = false) }
     }
 })

@@ -24,12 +24,9 @@ class ArchitectureTest : FunSpec({
         }
     }
 
-    test("use cases know nothing about delivery, security or infrastructure frameworks") {
-        val frameworks = listOf(
-            "org.springframework.security", "org.springframework.scheduling", "org.springframework.core.env",
-            "org.springframework.web", "jakarta.servlet", "com.auth0", "tools.jackson", "com.fasterxml",
-        )
-        module("usecases").imports.assertFalse { import -> frameworks.any { import.name.startsWith("$it.") } }
+    test("use cases depend only on the domain, the language and a logging facade") {
+        val allowed = listOf("$root.entity.", "$root.usecases.", "java.", "kotlin.", "org.slf4j.")
+        module("usecases").imports.assertTrue { import -> allowed.any { import.name.startsWith(it) } }
     }
 
     test("adapters do not depend on each other") {

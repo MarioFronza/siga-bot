@@ -1,9 +1,9 @@
 package br.com.mariofronza.sigabot.extraction.parser.semesterresults
 
-import br.com.mariofronza.sigabot.usecases.extraction.SigaLayoutChangedException
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
 import br.com.mariofronza.sigabot.extraction.parser.requireElementById
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultOutput
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultPeriod
+import br.com.mariofronza.sigabot.extraction.dto.SemesterResultOutput
+import br.com.mariofronza.sigabot.extraction.dto.SemesterResultPeriod
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.springframework.stereotype.Component

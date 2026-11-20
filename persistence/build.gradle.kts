@@ -20,9 +20,13 @@ plugins {
 dependencies {
     implementation(project(":entity"))
     implementation(project(":usecases"))
+    implementation(kotlin("reflect"))
     implementation("org.springframework.boot:spring-boot-starter-jooq")
+    implementation("org.springframework.boot:spring-boot-data-commons")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
+
+    runtimeOnly("org.postgresql:postgresql")
 
     jooqCodegen("org.postgresql:postgresql:42.7.14")
 

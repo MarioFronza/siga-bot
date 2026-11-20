@@ -4,6 +4,7 @@ import br.com.mariofronza.sigabot.usecases.notification.NotificationService
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationInput
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput
 import org.springframework.web.bind.annotation.*
+import java.util.UUID
 
 @RestController
 @RequestMapping("/notifications")
@@ -17,7 +18,7 @@ class NotificationController(
     }
 
     @PostMapping("/user/{id}")
-    fun createToUser(@PathVariable id: String, @RequestBody notificationInput: NotificationInput) {
+    fun createToUser(@PathVariable id: UUID, @RequestBody notificationInput: NotificationInput) {
         notificationService.createNotificationToUser(id, notificationInput)
     }
 

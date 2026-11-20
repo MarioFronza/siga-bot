@@ -14,6 +14,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import java.util.UUID
 
 class UserServiceTest : FunSpec({
 
@@ -29,7 +30,7 @@ class UserServiceTest : FunSpec({
         every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
         every { cryptographyService.encrypt(any()) } returns "encrypted"
         every { cryptographyService.digest(any()) } returns byteArrayOf(1)
-        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured.copy(id = 1) }
+        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured.copy(id = 1, externalId = UUID.randomUUID()) }
 
         UserService(userInteractor, roleService, sigaCredentialInteractor, BCryptPasswordEncoder(), cryptographyService)
             .createUser(
@@ -41,6 +42,32 @@ class UserServiceTest : FunSpec({
             )
 
         savedUser.captured.roles.map { it.name } shouldBe listOf("STUDENT")
+    }
+
+    test("answers with the public external id instead of the internal one") {
+        val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
+        val userInteractor: UserInteractor = mockk()
+        val roleService: RoleService = mockk()
+        val sigaCredentialInteractor: SigaCredentialInteractor = mockk()
+        val cryptographyService: CryptographyService = mockk()
+
+        every { userInteractor.findByEmail(any()) } returns null
+        every { sigaCredentialInteractor.existsByCpfDigest(any()) } returns false
+        every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
+        every { cryptographyService.encrypt(any()) } returns "encrypted"
+        every { cryptographyService.digest(any()) } returns byteArrayOf(1)
+        every { userInteractor.save(any()) } answers { firstArg<User>().copy(id = 1, externalId = externalId) }
+
+        val output = UserService(userInteractor, roleService, sigaCredentialInteractor, BCryptPasswordEncoder(), cryptographyService)
+            .createUser(
+                CreateUserInput(
+                    email = "student@test.com",
+                    password = "secret",
+                    sigaCredential = SigaCredentialRequest(cpf = "00000000000", password = "siga")
+                )
+            )
+
+        output.id shouldBe externalId
     }
 
     test("rejects a sign-up whose CPF is already registered") {

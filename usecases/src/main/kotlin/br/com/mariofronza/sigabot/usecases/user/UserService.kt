@@ -10,6 +10,7 @@ import br.com.mariofronza.sigabot.usecases.user.gateway.SigaCredentialInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
 class UserService(
@@ -24,8 +25,8 @@ class UserService(
         return userInteractor.findAllActive()
     }
 
-    fun findById(id: Long): User {
-        return userInteractor.findById(id) ?: throw Exception("User not found")
+    fun findByExternalId(externalId: UUID): User {
+        return userInteractor.findByExternalId(externalId) ?: throw Exception("User not found")
     }
 
     fun createUser(request: CreateUserInput): CreateUserOutput {
@@ -53,7 +54,7 @@ class UserService(
         )
 
         return CreateUserOutput(
-            id = user.id!!,
+            id = user.externalId!!,
             username = user.username,
             email = user.email
         )

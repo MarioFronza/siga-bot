@@ -8,6 +8,7 @@ import br.com.mariofronza.sigabot.persistence.user.repository.UserRepository
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.util.UUID
 
 @Component
 @Transactional
@@ -18,7 +19,7 @@ class UserRepositoryInteractor(
 
     override fun findAllActive(): List<User> = userRepository.findByActiveTrue().map { it.toEntity() }
 
-    override fun findById(id: Long): User? = userRepository.findById(id).orElse(null)?.toEntity()
+    override fun findByExternalId(externalId: UUID): User? = userRepository.findByExternalId(externalId)?.toEntity()
 
     override fun findByEmail(email: String): User? = userRepository.findByEmail(email)?.toEntity()
 

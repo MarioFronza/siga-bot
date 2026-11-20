@@ -99,7 +99,7 @@ class RetrieveService(
     private fun notifyWatchers(user: User, subjectName: String) {
         val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
         println(message)
-        socketNotification.notifyUser(user.id!!, message)
+        socketNotification.notifyUser(user.externalId!!, message)
     }
 
     private fun getCurrentUser(): User {

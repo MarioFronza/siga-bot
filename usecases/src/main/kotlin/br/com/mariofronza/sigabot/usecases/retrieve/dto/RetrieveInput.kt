@@ -5,7 +5,6 @@ import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResul
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
 
 class RetrieveInput(
-    val userId: Long = 0L,
     private val year: Int = 0,
     private val term: Int = 0
 ) {

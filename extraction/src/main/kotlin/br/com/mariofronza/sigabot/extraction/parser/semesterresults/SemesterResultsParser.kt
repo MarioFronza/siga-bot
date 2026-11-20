@@ -1,5 +1,7 @@
 package br.com.mariofronza.sigabot.extraction.parser.semesterresults
 
+import br.com.mariofronza.sigabot.usecases.extraction.SigaLayoutChangedException
+import br.com.mariofronza.sigabot.extraction.parser.requireElementById
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultOutput
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultPeriod
 import org.jsoup.Jsoup
@@ -11,9 +13,9 @@ class SemesterResultsParser {
 
     fun extractSemesterResults(responseContent: String, periodIdentified: String): SemesterResultsResponse {
         val document = Jsoup.parse(responseContent)
-        val termSelect = document.getElementById("lPeriodoLetivo")!!
-        val courseSelect = document.getElementById("lCurso")!!
-        val resultSpan = document.getElementById("resultado")!!
+        val termSelect = document.requireElementById("lPeriodoLetivo")
+        val courseSelect = document.requireElementById("lCurso")
+        val resultSpan = document.requireElementById("resultado")
 
         return SemesterResultsResponse(
             period = extractPeriod(termSelect, periodIdentified),
@@ -33,7 +35,8 @@ class SemesterResultsParser {
     }
 
     private fun extractSemesterResults(resultSpan: Element): MutableList<SemesterResult> {
-        val table = resultSpan.select("center > table.delimitador > tbody").first()!!
+        val table = resultSpan.selectFirst("center > table.delimitador > tbody")
+            ?: throw SigaLayoutChangedException("SIGA results have no table")
         val semesterResults = mutableListOf<SemesterResult>()
         table.children().mapIndexed { index, row ->
             if (row.childrenSize() == 10 && index != 0) {

@@ -14,4 +14,6 @@ data class User(
 ) {
     val username: String
         get() = if (fullName.isNotEmpty()) fullName.split(" ").first() else ""
+
+    fun requireExternalId(): UUID = checkNotNull(externalId) { "User $email has no external id until it is saved" }
 }

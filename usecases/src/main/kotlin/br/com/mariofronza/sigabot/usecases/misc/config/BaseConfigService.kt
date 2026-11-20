@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 @PropertySource("classpath:/application.properties")
 class BaseConfigService(val env: Environment) {
 
-    private val logger = LoggerFactory.getLogger(BaseConfigService::class.java)!!
+    private val logger = LoggerFactory.getLogger(BaseConfigService::class.java)
 
     fun getString(property: String): String? {
         val value = env.getProperty(toEnvConvention(property))

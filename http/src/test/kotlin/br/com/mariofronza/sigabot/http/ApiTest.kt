@@ -25,6 +25,7 @@ import br.com.mariofronza.sigabot.usecases.user.UserService
 import br.com.mariofronza.sigabot.usecases.user.dto.UserOutput
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -73,7 +74,7 @@ class ApiTest : FunSpec() {
     }
 
     private val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
-    private val passwordHash = BCryptPasswordEncoder().encode("app-password")!!
+    private val passwordHash = BCryptPasswordEncoder().encode("app-password").shouldNotBeNull()
     private val udesc = Institution(id = 1, code = Institution.UDESC, name = "UDESC", gradeScaleMax = 10.0)
 
     private fun signedIn(vararg roles: String): User {

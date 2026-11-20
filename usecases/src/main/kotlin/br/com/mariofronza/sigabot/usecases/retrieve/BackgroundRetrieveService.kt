@@ -30,7 +30,6 @@ class BackgroundRetrieveService(
         logger.debug("Retrieving user {}", user.externalId)
         retrieveService.retrieveForUser(
             retrieveInput = RetrieveInput(
-                userId = user.id!!,
                 year = sigaYear,
                 term = sigaTerm,
             ),

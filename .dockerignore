@@ -1,5 +1,2 @@
-.git
-.gradle
-.idea
-**/build
-.env
+*
+!application/build/distributions/application.tar

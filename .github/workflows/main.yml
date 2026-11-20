@@ -47,6 +47,20 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: sigabot
+          POSTGRES_USER: sigabot
+          POSTGRES_PASSWORD: sigabot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sigabot -d sigabot"
+          --health-interval 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v7
 
@@ -77,6 +91,31 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
+
+      - name: Smoke test
+        env:
+          IMAGE_REF: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+        run: |
+          docker run -d --name siga-bot --network host \
+            -e DATASOURCE_URL=jdbc:postgresql://localhost:5432/sigabot \
+            -e DATASOURCE_USERNAME=sigabot \
+            -e DATASOURCE_PASSWORD=sigabot \
+            -e JWT_SECRET="$(openssl rand -base64 48)" \
+            -e SECRETKEY="$(openssl rand -hex 16)" \
+            -e ONESIGNAL_APIKEY=smoke-test \
+            -e SIGA_YEAR=2026 \
+            -e SIGA_TERM=1 \
+            "$IMAGE_REF"
+          for _ in $(seq 60); do
+            case "$(docker inspect -f '{{.State.Running}} {{.State.Health.Status}}' siga-bot)" in
+              "true healthy") exit 0 ;;
+              "true starting") sleep 3 ;;
+              *) break ;;
+            esac
+          done
+          docker inspect -f 'status={{.State.Status}} health={{.State.Health.Status}} exit={{.State.ExitCode}}' siga-bot
+          docker logs siga-bot
+          exit 1
 
       - if: github.event_name == 'push'
         uses: docker/login-action@v4

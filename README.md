@@ -86,7 +86,7 @@ To expose it over HTTPS, point a Cloudflare Tunnel route at `http://<host>:8080`
 
 ## Grade sync
 
-Every student has a row in `sync_jobs` with the time of their next sync. Every 30 seconds each instance claims up to 8 due jobs with `FOR UPDATE SKIP LOCKED` and a 10-minute lease, then syncs them in parallel on virtual threads. Running several instances is safe, because a job claimed by one is invisible to the others until its lease ends.
+Every student has a row in `sync_jobs` with the time of their next sync. Each instance keeps 8 sync slots. Every 5 seconds it claims as many due jobs as it has free slots, with `FOR UPDATE SKIP LOCKED` and a 10-minute lease, and syncs each one on a virtual thread. A slow SIGA answer holds only its own slot, and the others keep claiming work. Running several instances is safe, because a job claimed by one is invisible to the others until its lease ends.
 
 - A successful sync schedules the next one an hour later, which spreads the load across the hour instead of hitting SIGA at the top of it.
 - A failed sync retries after 5 minutes, doubling up to 6 hours, and keeps the error in `last_error`.

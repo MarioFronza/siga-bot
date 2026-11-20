@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/MarioFronza/siga-bot/compare/v1.0.0...v1.0.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **deps:** bump the gradle group with 2 updates ([#16](https://github.com/MarioFronza/siga-bot/issues/16)) ([275b3c7](https://github.com/MarioFronza/siga-bot/commit/275b3c7c5215c7be360df67012deaef511994ddd))
+
 ## 1.0.0 (2026-11-20)
 
 

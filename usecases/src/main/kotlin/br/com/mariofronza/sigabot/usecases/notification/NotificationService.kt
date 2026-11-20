@@ -2,12 +2,11 @@ package br.com.mariofronza.sigabot.usecases.notification
 
 import br.com.mariofronza.sigabot.entity.notification.Notification
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
-import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationInput
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput
 import br.com.mariofronza.sigabot.usecases.notification.gateway.NotificationInteractor
 import br.com.mariofronza.sigabot.usecases.user.UserService
-import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import java.util.UUID
 
@@ -18,26 +17,16 @@ class NotificationService(
     private val socketNotification: PushNotification,
 ) {
 
-    fun listNotifications(): List<NotificationOutput> {
-        val user = getCurrentUser()
-        return notificationInteractor.findByUser(user).map {
-            NotificationOutput(description = it.message)
-        }
-    }
+    fun listNotifications(user: User, pageable: Pageable): Page<NotificationOutput> =
+        notificationInteractor.findByUser(user, pageable).map(NotificationOutput::from)
 
     fun createNotificationToAll(message: String) {
         socketNotification.notifyAllUsers(message)
     }
 
-    fun createNotificationToUser(externalId: UUID, notificationInput: NotificationInput): Notification {
+    fun createNotificationToUser(externalId: UUID, message: String): NotificationOutput {
         val user = userService.findByExternalId(externalId)
-        val notification = Notification(user = user, message = notificationInput.description)
-        socketNotification.notifyUser(externalId, notification.message)
-        return notificationInteractor.save(notification)
-    }
-
-    private fun getCurrentUser(): User {
-        val currentUser = SecurityContextHolder.getContext().authentication!!.principal as UserDetailsImpl
-        return currentUser.toUser()
+        socketNotification.notifyUser(externalId, message)
+        return NotificationOutput.from(notificationInteractor.save(Notification(user = user, message = message)))
     }
 }

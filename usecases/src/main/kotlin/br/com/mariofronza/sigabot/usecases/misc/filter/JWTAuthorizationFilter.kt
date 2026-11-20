@@ -35,8 +35,6 @@ class JWTAuthorizationFilter(
         chain.doFilter(request, response)
     }
 
-    override fun shouldNotFilter(request: HttpServletRequest) = request.requestURI == "/auth/refresh-token"
-
     private fun loadUser(token: String): UserDetails? = try {
         userDetailService.loadUserByUsername(jwtUtil.decodeAccessToken(token).subject)
     } catch (_: JWTVerificationException) {

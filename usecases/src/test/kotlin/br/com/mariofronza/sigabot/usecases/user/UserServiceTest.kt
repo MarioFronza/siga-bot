@@ -89,7 +89,7 @@ class UserServiceTest : FunSpec({
         every { institutionInteractor.findByCode("udesc") } returns udesc
         every { academicAccountInteractor.existsByLoginDigest(udesc, byteArrayOf(7)) } returns true
 
-        val error = shouldThrow<Exception> {
+        val error = shouldThrow<AcademicAccountAlreadyRegisteredException> {
             UserService(userInteractor, mockk(), institutionInteractor, academicAccountInteractor, BCryptPasswordEncoder(), cryptographyService)
                 .createUser(
                     CreateUserInput(

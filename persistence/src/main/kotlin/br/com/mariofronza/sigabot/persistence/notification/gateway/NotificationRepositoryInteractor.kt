@@ -6,6 +6,9 @@ import br.com.mariofronza.sigabot.persistence.notification.entity.NotificationJP
 import br.com.mariofronza.sigabot.persistence.notification.repository.NotificationRepository
 import br.com.mariofronza.sigabot.persistence.user.repository.UserRepository
 import br.com.mariofronza.sigabot.usecases.notification.gateway.NotificationInteractor
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,13 +19,15 @@ class NotificationRepositoryInteractor(
     private val userRepository: UserRepository,
 ) : NotificationInteractor {
 
-    override fun findByUser(user: User): List<Notification> =
-        notificationRepository.findByUserIdOrderByCreatedAtDesc(user.id!!).map { it.toEntity(user) }
+    override fun findByUser(user: User, pageable: Pageable): Page<Notification> =
+        notificationRepository
+            .findByUserIdOrderByCreatedAtDescIdDesc(user.id!!, PageRequest.of(pageable.pageNumber, pageable.pageSize))
+            .map { it.toEntity(user) }
 
     override fun save(notification: Notification): Notification {
         val saved = notificationRepository.save(
             NotificationJPA(user = userRepository.getReferenceById(notification.user.id!!), message = notification.message)
         )
-        return notification.copy(id = saved.id)
+        return notification.copy(id = saved.id, createdAt = saved.createdAt)
     }
 }

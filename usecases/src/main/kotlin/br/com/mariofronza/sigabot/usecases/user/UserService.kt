@@ -5,8 +5,8 @@ import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserInput
-import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserOutput
 import br.com.mariofronza.sigabot.usecases.user.dto.SigaCredentialRequest
+import br.com.mariofronza.sigabot.usecases.user.dto.UserOutput
 import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.AcademicAccountInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
@@ -29,22 +29,22 @@ class UserService(
     }
 
     fun findByExternalId(externalId: UUID): User {
-        return userInteractor.findByExternalId(externalId) ?: throw Exception("User not found")
+        return userInteractor.findByExternalId(externalId) ?: throw UserNotFoundException(externalId)
     }
 
-    fun createUser(request: CreateUserInput): CreateUserOutput {
+    fun createUser(request: CreateUserInput): UserOutput {
         val email = request.email.lowercase()
         val cpf = request.sigaCredential.cpf
 
         if (userInteractor.findByEmail(email) != null) {
-            throw Exception("User already exists")
+            throw EmailAlreadyRegisteredException()
         }
 
         val institution = institutionInteractor.findByCode(Institution.UDESC)
             ?: throw Exception("Institution ${Institution.UDESC} not found")
 
         if (academicAccountInteractor.existsByLoginDigest(institution, cpfDigest(cpf))) {
-            throw Exception("Siga credential already exists")
+            throw AcademicAccountAlreadyRegisteredException()
         }
 
         val role = roleService.findByName(STUDENT_ROLE) ?: throw Exception("Role $STUDENT_ROLE not found")
@@ -59,11 +59,7 @@ class UserService(
             )
         )
 
-        return CreateUserOutput(
-            id = user.externalId!!,
-            username = user.username,
-            email = user.email
-        )
+        return UserOutput.from(user)
     }
 
     private fun encryptAcademicAccount(institution: Institution, request: SigaCredentialRequest): AcademicAccount {

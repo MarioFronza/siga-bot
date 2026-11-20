@@ -99,19 +99,31 @@ docker exec -i <db-container> psql -U sigabot sigabot < siga-bot.sql
 
 ## Endpoints
 
-Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes and refresh tokens last 1 year.
+The API is versioned in the path, under `/api/v1`. A version the server does not serve answers `400`. Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes and refresh tokens last 1 year.
 
-### `GET /health`
+The OpenAPI contract is served at `GET /api/v1/openapi.json`. It covers every route except `POST /api/v1/sessions`, which Spring Security handles before MVC.
 
-Public. Response `200`:
+Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `application/problem+json`:
 
 ```json
-true
+{ "status": 409, "title": "Conflict", "detail": "User already exists", "instance": "/api/v1/users" }
 ```
 
-### `POST /users`
+| Route | Access | Purpose |
+|---|---|---|
+| `GET /health` | public | container health check, outside the versioned API |
+| `POST /api/v1/users` | public | sign up |
+| `POST /api/v1/sessions` | public | log in |
+| `POST /api/v1/sessions/refresh` | public | trade a refresh token for new tokens |
+| `GET /api/v1/me` | authenticated | the signed-in user |
+| `GET /api/v1/me/terms` | `STUDENT` | terms with grades, newest first |
+| `GET /api/v1/me/terms/{year}/{term}/enrollments` | `STUDENT` | stored grades of a term |
+| `POST /api/v1/me/syncs` | `STUDENT` | read SIGA now and store the grades |
+| `GET /api/v1/me/notifications` | authenticated | the user's notifications, paginated |
+| `POST /api/v1/notifications` | `ADMIN` | push a message to every device |
+| `POST /api/v1/users/{id}/notifications` | `ADMIN` | push a message to one user and store it |
 
-Public. Signs up a student; every new user gets the `STUDENT` role.
+### `POST /api/v1/users`
 
 ```json
 {
@@ -124,17 +136,15 @@ Public. Signs up a student; every new user gets the `STUDENT` role.
 }
 ```
 
-Response `201`:
+Response `201` with `Location: /api/v1/me`:
 
 ```json
-{ "id": "01a1f973-13ad-7a5c-80df-bf421ada5df1", "username": "", "email": "student@example.com" }
+{ "id": "01a1f973-13ad-7a5c-80df-bf421ada5df1", "email": "student@example.com", "fullName": "" }
 ```
 
-`id` is the public user id, a UUIDv7. The email is stored in lowercase, and a CPF can only be registered once, whatever its formatting. `username` stays empty until the first retrieve reads the name from SIGA.
+`id` is the public user id, a UUIDv7. The email is stored in lowercase, and a CPF can only be registered once, whatever its formatting. Both duplicates answer `409`, and an invalid body answers `400`. `fullName` stays empty until the first sync reads it from SIGA. `GET /api/v1/me` returns the same shape.
 
-### `POST /sessions`
-
-Public. Logs in.
+### `POST /api/v1/sessions`
 
 ```json
 { "email": "student@example.com", "password": "app-password" }
@@ -146,78 +156,57 @@ Response `200` (`401` on wrong credentials):
 { "accessToken": "eyJ...", "refreshToken": "eyJ...", "userId": "01a1f973-13ad-7a5c-80df-bf421ada5df1" }
 ```
 
-The app registers `userId` as the OneSignal external user id, which is how `/notifications/user/{id}` and new-grade pushes reach the device.
+The app registers `userId` as the OneSignal external user id, which is how user notifications and new-grade pushes reach the device.
 
-### `POST /auth/refresh-token`
+### `POST /api/v1/sessions/refresh`
 
-Header `Authorization: Bearer <refreshToken>`. Response `200` has the same body as `/sessions`. Returns `401` when the token is invalid and `400` when the header is missing.
+```json
+{ "refreshToken": "eyJ..." }
+```
 
-### `GET /retrieve?year=2020&term=2`
+Response `200` has the same body as `/sessions`, or `401` when the token is invalid.
 
-`STUDENT`. Logs into SIGA, scrapes that period, saves the grades, and notifies about any new grade.
+### `GET /api/v1/me/terms`
 
-Response `200`:
+```json
+[{ "year": 2026, "term": 2 }, { "year": 2026, "term": 1 }]
+```
+
+### `GET /api/v1/me/terms/{year}/{term}/enrollments`
+
+```json
+[
+  {
+    "subject": "Banco de Dados",
+    "classSection": "BAN01",
+    "courseLoad": 72,
+    "finalGrade": 8.0,
+    "absences": 0,
+    "attendancePercentage": 100.0,
+    "result": "Aprovado"
+  }
+]
+```
+
+### `POST /api/v1/me/syncs`
+
+Logs into SIGA, stores the grades, and notifies about any new grade. Sync one term with `{ "year": 2026, "term": 1 }`, or every term SIGA has with `{ "scope": "full" }`. It answers `200` with the synced terms, in the same shape as `/me/terms`, and `400` when `year` or `term` is missing.
+
+### `GET /api/v1/me/notifications?page=0&size=20`
+
+Newest first. `size` defaults to 20 and is capped at 100.
 
 ```json
 {
-  "username": "Ana",
-  "periods": [{ "year": 2020, "term": 2 }]
+  "content": [{ "id": 7, "message": "Grades are out", "createdAt": "2026-11-20T12:00:00Z" }],
+  "page": { "size": 20, "number": 0, "totalElements": 1, "totalPages": 1 }
 }
 ```
 
-### `GET /retrieve/full`
-
-`STUDENT`. Same as above for every period available in SIGA. Response `200` has the same shape, with all periods.
-
-### `GET /dashboard/info`
-
-`STUDENT`. Lists the periods the user has grades in, newest first.
+### `POST /api/v1/notifications` and `POST /api/v1/users/{id}/notifications`
 
 ```json
-{
-  "username": "Ana",
-  "periods": [
-    { "year": 2020, "term": 2 },
-    { "year": 2020, "term": 1 }
-  ]
-}
+{ "message": "Grades are out" }
 ```
 
-### `GET /dashboard?year=2020&term=2`
-
-`STUDENT`. Stored grades for a period.
-
-```json
-{
-  "period": { "year": 2020, "term": 2 },
-  "results": [
-    {
-      "finalGrade": 8.0,
-      "courseLoad": 72,
-      "absencesCount": 0,
-      "attendancePercentage": 100.0,
-      "result": "Aprovado",
-      "subjectName": "Banco de Dados",
-      "groupName": "BAN01"
-    }
-  ]
-}
-```
-
-### `GET /notifications`
-
-Authenticated. The current user's notifications.
-
-```json
-[{ "description": "Grades are out" }]
-```
-
-### `POST /notifications/all` and `POST /notifications/user/{id}`
-
-`ADMIN`. `/all` pushes a message to every device; `/user/{id}` pushes it to one user, by public id, and stores it.
-
-```json
-{ "description": "Grades are out" }
-```
-
-Response `200` with an empty body.
+Broadcasting answers `202` with an empty body. Notifying one user, by public id, stores the notification and answers `201` with it, or `404` when the user does not exist.

@@ -3,16 +3,16 @@ package br.com.mariofronza.sigabot.integration.data.remove.onesignal
 import br.com.mariofronza.sigabot.integration.data.remove.onesignal.dto.*
 import br.com.mariofronza.sigabot.integration.retrofit.connector.Connector
 import br.com.mariofronza.sigabot.integration.retrofit.connector.OneSignalConnector
-import br.com.mariofronza.sigabot.usecases.misc.config.ConfigService
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 @Service
 class OneSignalService(
-    configService: ConfigService
+    @param:Value("\${onesignal.apiKey}")
+    private val restApiKey: String,
 ) {
 
     private val oneSignalConnector: OneSignalConnector = Connector().createConnection()
-    private val restApiKey = configService.getRequiredString("onesignal.apiKey")
     private val headers = mapOf(
         "Authorization" to "Basic $restApiKey",
     )

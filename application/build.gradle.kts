@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":extraction"))
     implementation(project(":usecases"))
     implementation(project(":integration"))
+    implementation(project(":infrastructure"))
     implementation(kotlin("reflect"))
     implementation("org.springframework.boot:spring-boot-starter")
 

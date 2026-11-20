@@ -8,7 +8,7 @@ import io.kotest.core.spec.style.FunSpec
 class ArchitectureTest : FunSpec({
 
     val root = "br.com.mariofronza.sigabot"
-    val adapters = listOf("persistence", "extraction", "http", "integration")
+    val adapters = listOf("persistence", "extraction", "http", "integration", "infrastructure")
 
     fun module(name: String) = Konsist.scopeFromModule(name)
 
@@ -22,6 +22,14 @@ class ArchitectureTest : FunSpec({
         module("usecases").imports.assertFalse { import ->
             (adapters + "application").any { import.name.startsWith("$root.$it.") }
         }
+    }
+
+    test("use cases know nothing about delivery, security or infrastructure frameworks") {
+        val frameworks = listOf(
+            "org.springframework.security", "org.springframework.scheduling", "org.springframework.core.env",
+            "org.springframework.web", "jakarta.servlet", "com.auth0", "tools.jackson", "com.fasterxml",
+        )
+        module("usecases").imports.assertFalse { import -> frameworks.any { import.name.startsWith("$it.") } }
     }
 
     test("adapters do not depend on each other") {

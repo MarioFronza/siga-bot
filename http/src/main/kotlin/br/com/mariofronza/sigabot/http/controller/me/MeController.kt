@@ -1,10 +1,10 @@
 package br.com.mariofronza.sigabot.http.controller.me
 
-import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
+import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.retrieve.RetrieveService
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
-import br.com.mariofronza.sigabot.usecases.retrieve.dto.SyncInput
-import br.com.mariofronza.sigabot.usecases.retrieve.dto.SyncScope
+import br.com.mariofronza.sigabot.http.controller.me.SyncInput
+import br.com.mariofronza.sigabot.http.controller.me.SyncScope
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.dto.EnrollmentOutput
 import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService

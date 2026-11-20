@@ -1,6 +1,6 @@
 package br.com.mariofronza.sigabot.http.controller.notification
 
-import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
+import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.notification.NotificationService
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationInput
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput

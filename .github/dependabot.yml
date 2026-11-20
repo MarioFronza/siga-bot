@@ -29,4 +29,4 @@ updates:
       include: scope
     groups:
       actions:
-        update-types: [ minor, patch ]
+        patterns: [ '*' ]

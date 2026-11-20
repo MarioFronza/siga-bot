@@ -3,7 +3,8 @@ package br.com.mariofronza.sigabot.extraction
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepError
 import br.com.mariofronza.sigabot.extraction.extractor.ExtractorContext
 import br.com.mariofronza.sigabot.extraction.extractor.prelogin.CookieExtractor
-import br.com.mariofronza.sigabot.extraction.dto.PeriodInput
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionInput
 import br.com.mariofronza.sigabot.extraction.dto.SigaCredentialInput
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
@@ -26,9 +27,9 @@ class SemesterResultsExtractionTest : FunSpec({
             cookieExtractor,
             mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), mockk()
         )
-        val input = SemesterResultsExtractionInput(SigaCredentialInput("cpf", "password"), PeriodInput("2026", 2))
+        val input = SemesterResultsExtractionInput(SigaCredentialInput("cpf", "password"), SyncScope.Period(AcademicPeriod(2026, 2)))
 
-        repeat(2) { runCatching { extraction.extract(input, completeExtraction = false) } }
+        repeat(2) { runCatching { extraction.extract(input) } }
 
         contexts[0] shouldNotBeSameInstanceAs contexts[1]
     }
@@ -40,8 +41,8 @@ class SemesterResultsExtractionTest : FunSpec({
             cookieExtractor,
             mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), mockk()
         )
-        val input = SemesterResultsExtractionInput(SigaCredentialInput("cpf", "password"), PeriodInput("2026", 2))
+        val input = SemesterResultsExtractionInput(SigaCredentialInput("cpf", "password"), SyncScope.Period(AcademicPeriod(2026, 2)))
 
-        shouldThrow<SigaUnavailableException> { extraction.extract(input, completeExtraction = false) }
+        shouldThrow<SigaUnavailableException> { extraction.extract(input) }
     }
 })

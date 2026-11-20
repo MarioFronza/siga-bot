@@ -6,7 +6,6 @@ import br.com.mariofronza.sigabot.entity.enrollment.Grade
 import br.com.mariofronza.sigabot.entity.enrollment.SemesterOutcome
 import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
-import br.com.mariofronza.sigabot.extraction.dto.PeriodInput
 import br.com.mariofronza.sigabot.extraction.dto.SemesterResultOutput
 import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionInput
 import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionOutput
@@ -28,7 +27,7 @@ class UdescSiga(
 
     override fun fetch(credentials: AcademicSystem.Credentials, scope: SyncScope): AcademicRecord {
         val output = try {
-            extraction.extract(inputOf(credentials, scope), completeExtraction = scope == SyncScope.Everything)
+            extraction.extract(SemesterResultsExtractionInput(SigaCredentialInput(credentials.login, credentials.password), scope))
         } catch (e: IOException) {
             throw SigaUnavailableException("SIGA did not answer", e)
         }
@@ -37,14 +36,6 @@ class UdescSiga(
         } catch (e: IllegalArgumentException) {
             throw SigaLayoutChangedException("SIGA showed data the domain rejects: ${e.message}")
         }
-    }
-
-    private fun inputOf(credentials: AcademicSystem.Credentials, scope: SyncScope): SemesterResultsExtractionInput {
-        val period = when (scope) {
-            is SyncScope.Period -> PeriodInput(year = scope.period.year.toString(), term = scope.period.term)
-            SyncScope.Everything -> PeriodInput(year = "0", term = 0)
-        }
-        return SemesterResultsExtractionInput(SigaCredentialInput(credentials.login, credentials.password), period)
     }
 
     private fun recordOf(output: SemesterResultsExtractionOutput): AcademicRecord {

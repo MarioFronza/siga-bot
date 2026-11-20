@@ -29,7 +29,7 @@ class UdescSigaTest : FunSpec({
     val period = AcademicPeriod(2026, 1)
 
     fun sigaShows(periodText: String, grade: Double = 8.5) {
-        every { extraction.extract(any(), any()) } returns SemesterResultsExtractionOutput(
+        every { extraction.extract(any()) } returns SemesterResultsExtractionOutput(
             studentName = "Ana Souza",
             course = "Engenharia de Software",
             semesterResultsPeriod = listOf(
@@ -60,7 +60,7 @@ class UdescSigaTest : FunSpec({
     }
 
     test("reports SIGA as unavailable when the connection fails") {
-        every { extraction.extract(any(), any()) } throws IOException("connection reset")
+        every { extraction.extract(any()) } throws IOException("connection reset")
 
         shouldThrow<SigaUnavailableException> { siga.fetch(credentials, SyncScope.Everything) }
     }

@@ -114,8 +114,6 @@ jobs:
             -e JWT_SECRET="$(openssl rand -base64 48)" \
             -e SECRETKEY="$(openssl rand -hex 16)" \
             -e ONESIGNAL_APIKEY=smoke-test \
-            -e SIGA_YEAR=2026 \
-            -e SIGA_TERM=1 \
             "$IMAGE_REF"
           for _ in $(seq 60); do
             case "$(docker inspect -f '{{.State.Running}} {{.State.Health.Status}}' siga-bot)" in

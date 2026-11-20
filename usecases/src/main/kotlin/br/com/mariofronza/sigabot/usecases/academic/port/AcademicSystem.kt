@@ -17,6 +17,7 @@ interface AcademicSystem {
 sealed interface SyncScope {
     data class Period(val period: AcademicPeriod) : SyncScope
     data object Everything : SyncScope
+    data object Latest : SyncScope
 }
 
 data class AcademicRecord(

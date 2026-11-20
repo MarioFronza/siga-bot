@@ -1,7 +1,6 @@
 package br.com.mariofronza.sigabot.extraction
 
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
-import br.com.mariofronza.sigabot.usecases.academic.port.SigaPeriodNotFoundException
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse
 import br.com.mariofronza.sigabot.extraction.connector.Connector
@@ -42,22 +41,13 @@ class SemesterResultsExtraction(
 
     fun extract(
         extractSemesterResultsInput: SemesterResultsExtractionInput,
-        completeExtraction: Boolean
     ): SemesterResultsExtractionOutput {
         val extractorContext = ExtractorContext()
         extractCookie(extractorContext)
         val studentName = extractDashboard(extractorContext, extractSemesterResultsInput)
         extractSemesterResultDashboard(extractorContext)
         val periods = extractPeriods(extractorContext)
-        val periodsIdentified = if (completeExtraction) {
-            periods.map { it.value }
-        } else {
-            getPeriodSigaIdentified(
-                year = extractSemesterResultsInput.period.year,
-                term = extractSemesterResultsInput.period.term,
-                periods
-            )
-        }
+        val periodsIdentified = selectPeriods(periods, extractSemesterResultsInput.scope)
 
         // TODO use coroutines here
         val semesterResultsOutput = periodsIdentified.map {
@@ -128,7 +118,4 @@ class SemesterResultsExtraction(
         }
     }
 
-    private fun getPeriodSigaIdentified(year: String, term: Int, periods: Map<String, String>): List<String> {
-        return listOf(periods["$year/$term"] ?: throw SigaPeriodNotFoundException("$year/$term"))
-    }
 }

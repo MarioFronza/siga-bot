@@ -27,7 +27,7 @@ cp .env.example .env
 | `JWT_SECRET` | at least 32 bytes, e.g. `openssl rand -base64 48` |
 | `SECRETKEY` | exactly 32 chars, used to encrypt SIGA credentials, e.g. `openssl rand -hex 16` |
 | `ONESIGNAL_APIKEY` | OneSignal REST API key |
-| `SIGA_YEAR` / `SIGA_TERM` | period the hourly job fetches, e.g. `2020` / `2` |
+| `SIGA_YEAR` / `SIGA_TERM` | optional. By default the hourly job syncs the most recent period SIGA lists, so nothing changes across a semester boundary. Set both to pin a period, e.g. `2026` / `1` |
 
 With Docker Compose, after building the distribution the image packages:
 

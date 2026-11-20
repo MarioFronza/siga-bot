@@ -6,7 +6,7 @@ import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 
 interface ClassSectionInteractor {
 
-    fun find(name: String, course: Course, period: AcademicTerm): ClassSection?
+    fun find(code: String, course: Course, academicTerm: AcademicTerm): ClassSection?
 
-    fun save(group: ClassSection): ClassSection
+    fun save(classSection: ClassSection): ClassSection
 }

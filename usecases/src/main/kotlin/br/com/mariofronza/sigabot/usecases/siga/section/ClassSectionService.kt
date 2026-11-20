@@ -11,19 +11,8 @@ class ClassSectionService(
     private val classSectionInteractor: ClassSectionInteractor
 ) {
 
-    fun createGroup(groupName: String, course: Course, period: AcademicTerm): ClassSection {
-        var group = classSectionInteractor.find(groupName, course, period)
-
-        if (group == null) {
-            group = classSectionInteractor.save(
-                ClassSection(
-                    name = groupName,
-                    course = course,
-                    period = period
-                )
-            )
-        }
-
-        return group
+    fun findOrCreate(code: String, course: Course, academicTerm: AcademicTerm): ClassSection {
+        return classSectionInteractor.find(code, course, academicTerm)
+            ?: classSectionInteractor.save(ClassSection(code = code, course = course, academicTerm = academicTerm))
     }
 }

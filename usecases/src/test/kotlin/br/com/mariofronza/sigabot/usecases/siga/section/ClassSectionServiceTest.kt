@@ -11,19 +11,19 @@ import io.mockk.mockk
 
 class ClassSectionServiceTest : FunSpec({
 
-    test("creates a new group when the same name exists only in another period") {
+    test("creates a new class section when the same code exists only in another academic term") {
         val course = Course(id = 1, name = "Engenharia de Software")
-        val firstTerm = AcademicTerm(id = 1, year = "2026", term = 1)
-        val secondTerm = AcademicTerm(id = 2, year = "2026", term = 2)
-        val stored = mutableListOf(ClassSection(id = 1, name = "ESO-1", course = course, period = firstTerm))
+        val firstTerm = AcademicTerm(id = 1, year = 2026, term = 1)
+        val secondTerm = AcademicTerm(id = 2, year = 2026, term = 2)
+        val stored = mutableListOf(ClassSection(id = 1, code = "ESO-1", course = course, academicTerm = firstTerm))
         val classSectionInteractor: ClassSectionInteractor = mockk()
         every { classSectionInteractor.find(any(), any(), any()) } answers {
-            stored.firstOrNull { it.name == firstArg() && it.course == secondArg() && it.period == thirdArg() }
+            stored.firstOrNull { it.code == firstArg() && it.course == secondArg() && it.academicTerm == thirdArg() }
         }
         every { classSectionInteractor.save(any()) } answers { firstArg<ClassSection>().copy(id = 2).also(stored::add) }
 
-        val group = ClassSectionService(classSectionInteractor).createGroup("ESO-1", course, secondTerm)
+        val classSection = ClassSectionService(classSectionInteractor).findOrCreate("ESO-1", course, secondTerm)
 
-        group.period shouldBe secondTerm
+        classSection.academicTerm shouldBe secondTerm
     }
 })

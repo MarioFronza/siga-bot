@@ -6,7 +6,7 @@ import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
 
 interface SubjectOfferingInteractor {
 
-    fun findBySubjectAndEnrolledGroup(subject: Subject, enrolledGroup: ClassSection): SubjectOffering?
+    fun find(subject: Subject, classSection: ClassSection): SubjectOffering?
 
-    fun save(subjectEnrollment: SubjectOffering): SubjectOffering
+    fun save(subjectOffering: SubjectOffering): SubjectOffering
 }

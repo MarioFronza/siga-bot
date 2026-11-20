@@ -13,7 +13,7 @@ class UserDetailService(
 ) : UserDetailsService {
 
     override fun loadUserByUsername(email: String): UserDetails {
-        val user = userInteractor.findByEmail(email) ?: throw UsernameNotFoundException("User not found")
+        val user = userInteractor.findByEmail(email.lowercase()) ?: throw UsernameNotFoundException("User not found")
         return UserDetailsImpl(user)
     }
 }

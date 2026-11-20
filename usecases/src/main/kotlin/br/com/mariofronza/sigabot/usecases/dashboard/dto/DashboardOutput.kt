@@ -1,9 +1,9 @@
 package br.com.mariofronza.sigabot.usecases.dashboard.dto
 
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
+import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 
 data class DashboardOutput(
-    val period: AcademicTerm,
+    val period: AcademicTermOutput,
     val results: List<ResultOutput>
 )
 

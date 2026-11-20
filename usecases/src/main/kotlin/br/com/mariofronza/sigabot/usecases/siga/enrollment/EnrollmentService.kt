@@ -1,8 +1,8 @@
 package br.com.mariofronza.sigabot.usecases.siga.enrollment
 
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
+import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultOutput
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.gateway.EnrollmentInteractor
@@ -13,44 +13,25 @@ class EnrollmentService(
     private val enrollmentInteractor: EnrollmentInteractor,
 ) {
 
-    fun listAllByUserAndPeriod(user: User, period: AcademicTerm): List<Enrollment> {
-        return enrollmentInteractor.findAllByUserAndPeriod(user, period)
+    fun findAll(user: User, academicTerm: AcademicTerm): List<Enrollment> =
+        enrollmentInteractor.findAll(user, academicTerm)
+
+    fun hasGradeChanged(user: User, subjectOffering: SubjectOffering, result: SemesterResultOutput): Boolean {
+        val enrollment = enrollmentInteractor.find(user, subjectOffering) ?: return false
+        return result.finalGrade != enrollment.finalGrade
     }
 
-    fun createSemesterResult(
-        subjectEnrollment: SubjectOffering,
-        user: User,
-        semesterResultOutput: SemesterResultOutput
-    ): Enrollment {
-        val semesterResult =
-            enrollmentInteractor.findBySubjectEnrollmentAndUser(subjectEnrollment, user)
-
+    fun record(user: User, subjectOffering: SubjectOffering, result: SemesterResultOutput): Enrollment {
         return enrollmentInteractor.save(
             Enrollment(
-                id = semesterResult?.id,
-                finalGrade = semesterResultOutput.finalGrade,
-                courseLoad = semesterResultOutput.courseLoad,
-                absencesCount = semesterResultOutput.absencesCount,
-                attendancePercentage = semesterResultOutput.attendancePercentage,
-                result = semesterResultOutput.result,
+                id = enrollmentInteractor.find(user, subjectOffering)?.id,
                 user = user,
-                subjectEnrolled = subjectEnrollment
+                subjectOffering = subjectOffering,
+                finalGrade = result.finalGrade,
+                absences = result.absencesCount,
+                attendancePercentage = result.attendancePercentage,
+                result = result.result,
             )
         )
-    }
-
-    fun isThereAnyGradeUpdate(
-        subjectEnrollment: SubjectOffering,
-        user: User,
-        newSemesterResult: SemesterResultOutput
-    ): Boolean {
-        val semesterResult =
-            enrollmentInteractor.findBySubjectEnrollmentAndUser(subjectEnrollment, user)
-
-        if (semesterResult != null) {
-            return newSemesterResult.finalGrade != semesterResult.finalGrade
-        }
-
-        return false
     }
 }

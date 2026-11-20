@@ -6,14 +6,14 @@ import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentia
 
 class RetrieveInput(
     val userId: Long = 0L,
-    private val year: String = "",
+    private val year: Int = 0,
     private val term: Int = 0
 ) {
 
     fun toSemesterResultsExtractionInput(sigaCredentialInput: SigaCredentialInput) = SemesterResultsExtractionInput(
         sigaCredentialInput = sigaCredentialInput,
         period = PeriodInput(
-            year = year,
+            year = year.toString(),
             term = term
         )
     )

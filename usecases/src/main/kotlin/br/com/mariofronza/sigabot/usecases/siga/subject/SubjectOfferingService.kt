@@ -11,18 +11,10 @@ class SubjectOfferingService(
     private val subjectOfferingInteractor: SubjectOfferingInteractor
 ) {
 
-    fun createSubjectEnrollment(subject: Subject, group: ClassSection): SubjectOffering {
-        var subjectEnrollment = subjectOfferingInteractor.findBySubjectAndEnrolledGroup(subject, group)
-
-        if (subjectEnrollment == null) {
-            subjectEnrollment = subjectOfferingInteractor.save(
-                SubjectOffering(
-                    subject = subject,
-                    enrolledGroup = group
-                )
+    fun findOrCreate(subject: Subject, classSection: ClassSection, courseLoad: Int): SubjectOffering {
+        return subjectOfferingInteractor.find(subject, classSection)
+            ?: subjectOfferingInteractor.save(
+                SubjectOffering(subject = subject, classSection = classSection, courseLoad = courseLoad)
             )
-        }
-
-        return subjectEnrollment
     }
 }

@@ -1,6 +1,5 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
-import br.com.mariofronza.sigabot.entity.section.ClassSection
 import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.user.SigaCredential
 import br.com.mariofronza.sigabot.entity.user.User
@@ -11,6 +10,7 @@ import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
 import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.siga.section.ClassSectionService
 import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
+import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 import br.com.mariofronza.sigabot.usecases.notification.PushNotification
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveOutput
@@ -61,52 +61,39 @@ class RetrieveService(
 
         val course = courseService.createCourse(semesterResultsList.course)
         user = userInteractor.save(user.copy(fullName = semesterResultsList.studentName))
-        val periods = mutableListOf<AcademicTerm>()
+        val academicTerms = mutableListOf<AcademicTerm>()
 
         semesterResultsList.semesterResultsPeriod.map { semesterResults ->
-            val pairPeriod = getPairPeriod(semesterResults.period)
-            val period = academicTermService.createPeriod(pairPeriod.first, pairPeriod.second)
-            periods.add(period)
+            val (year, term) = parseAcademicTerm(semesterResults.period)
+            val academicTerm = academicTermService.findOrCreate(year, term)
+            academicTerms.add(academicTerm)
 
             semesterResults.semesterResults.map {
-                val group = classSectionService.createGroup(it.groupName, course, period)
-                addGroupToUser(user, group)
-
+                val classSection = classSectionService.findOrCreate(it.groupName, course, academicTerm)
                 val subject = subjectService.createSubject(it.subjectName)
-                val subjectEnrollment = subjectOfferingService.createSubjectEnrollment(
-                    subject = subject,
-                    group = group
-                )
+                val subjectOffering = subjectOfferingService.findOrCreate(subject, classSection, it.courseLoad)
 
-                if (enrollmentService.isThereAnyGradeUpdate(subjectEnrollment, user, it)) {
+                if (enrollmentService.hasGradeChanged(user, subjectOffering, it)) {
                     println("New grade update for ${user.username}")
                     notifyWatchers(user, subject.name)
                 } else {
                     println("User ${user.username} does not have any gradle update")
                 }
 
-                enrollmentService.createSemesterResult(subjectEnrollment, user, it)
+                enrollmentService.record(user, subjectOffering, it)
             }
         }
 
         // return updated subject here
         return RetrieveOutput(
             username = user.username,
-            periods = periods
+            periods = academicTerms.map(AcademicTermOutput::from)
         )
     }
 
-    private fun getPairPeriod(periodText: String): Pair<String, Int> {
-        val (year, term) = periodText.split("/")
-        return Pair(year, term.toInt())
-    }
-
-    // TODO remove that method to a better place
-    private fun addGroupToUser(user: User, group: ClassSection) {
-        if (user.groups.find { it.id == group.id } == null) {
-            user.groups.add(group)
-            userInteractor.save(user)
-        }
+    private fun parseAcademicTerm(text: String): Pair<Int, Int> {
+        val (year, term) = text.split("/")
+        return Pair(year.toInt(), term.toInt())
     }
 
     private fun notifyWatchers(user: User, subjectName: String) {
@@ -122,8 +109,8 @@ class RetrieveService(
 
     private fun generateSigaCredentialInput(sigaCredential: SigaCredential): SigaCredentialInput {
         return SigaCredentialInput(
-            cpf = cryptographyService.decrypt(sigaCredential.cpfHash),
-            password = cryptographyService.decrypt(sigaCredential.passwordHash)
+            cpf = cryptographyService.decrypt(sigaCredential.cpfCiphertext),
+            password = cryptographyService.decrypt(sigaCredential.passwordCiphertext)
         )
     }
 }

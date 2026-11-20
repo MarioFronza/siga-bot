@@ -14,13 +14,13 @@ class DashboardController(
 
     @GetMapping
     fun show(
-        @RequestParam year: String,
-        @RequestParam term: String
+        @RequestParam year: Int,
+        @RequestParam term: Int
     ): DashboardOutput {
         return dashboardInfoService.getStudentSemesterResults(
             DashboardInput(
                 year = year,
-                term = term.toInt()
+                term = term
             )
         )
     }

@@ -13,7 +13,7 @@ class BackgroundRetrieveService(
     configService: ConfigService,
 ) {
 
-    private val sigaYear = configService.getRequiredString("siga.year")
+    private val sigaYear = configService.getRequiredInt("siga.year")
     private val sigaTerm = configService.getRequiredInt("siga.term")
 
     @Scheduled(cron = "0 0 0/1 * * ?")
@@ -22,7 +22,6 @@ class BackgroundRetrieveService(
         println("Retrieve background service")
         users.forEach { user ->
             println("Retrieve for ${user.username}")
-            user.groups
             retrieveService.retrieveForUser(
                 retrieveInput = RetrieveInput(
                     userId = user.id!!,

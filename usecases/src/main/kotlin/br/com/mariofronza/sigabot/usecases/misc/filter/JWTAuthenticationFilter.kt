@@ -75,14 +75,5 @@ class UserDetailsImpl(private val user: User) : UserDetails {
 
     override fun isAccountNonLocked() = true
 
-    fun toUser() = User(
-        id = user.id,
-        fullName = user.fullName,
-        isActive = user.isActive,
-        email = user.email,
-        passwordHash = password,
-        sigaCredential = user.sigaCredential,
-        roles = user.roles,
-        groups = user.groups
-    )
+    fun toUser() = user
 }

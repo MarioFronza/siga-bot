@@ -1,6 +1,7 @@
 package br.com.mariofronza.sigabot.usecases.siga.term
 
 import br.com.mariofronza.sigabot.entity.term.AcademicTerm
+import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.siga.term.gateway.AcademicTermInteractor
 import org.springframework.stereotype.Service
 
@@ -9,22 +10,14 @@ class AcademicTermService(
     private val academicTermInteractor: AcademicTermInteractor
 ) {
 
-    fun findByYearAndTerm(year: String, term: Int): AcademicTerm {
+    fun findByYearAndTerm(year: Int, term: Int): AcademicTerm {
         return academicTermInteractor.findByYearAndTerm(year, term) ?: throw Exception("Academic term not found")
     }
 
-    fun createPeriod(year: String, term: Int): AcademicTerm {
-        var period = academicTermInteractor.findByYearAndTerm(year, term)
+    fun findAllEnrolledBy(user: User): List<AcademicTerm> = academicTermInteractor.findAllEnrolledBy(user)
 
-        if (period == null) {
-            period = academicTermInteractor.save(
-                AcademicTerm(
-                    year = year,
-                    term = term
-                )
-            )
-        }
-
-        return period
+    fun findOrCreate(year: Int, term: Int): AcademicTerm {
+        return academicTermInteractor.findByYearAndTerm(year, term)
+            ?: academicTermInteractor.save(AcademicTerm(year = year, term = term))
     }
 }

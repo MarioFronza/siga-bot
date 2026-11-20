@@ -20,10 +20,7 @@ class NotificationService(
     fun listNotifications(): List<NotificationOutput> {
         val user = getCurrentUser()
         return notificationInteractor.findByUser(user).map {
-            NotificationOutput(
-                description = it.description,
-                entityId = it.entityId
-            )
+            NotificationOutput(description = it.message)
         }
     }
 
@@ -33,12 +30,8 @@ class NotificationService(
 
     fun createNotificationToUser(userId: String, notificationInput: NotificationInput): Notification {
         val user = userService.findById(userId.toLong())
-        val notification = Notification(
-            user = user,
-            description = notificationInput.description,
-            entityId = notificationInput.entityId
-        )
-        socketNotification.notifyUser(userId.toLong(), notification.description)
+        val notification = Notification(user = user, message = notificationInput.description)
+        socketNotification.notifyUser(userId.toLong(), notification.message)
         return notificationInteractor.save(notification)
     }
 

@@ -1,12 +1,11 @@
 package br.com.mariofronza.sigabot.entity.section
 
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
-
 import br.com.mariofronza.sigabot.entity.course.Course
+import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 
 data class ClassSection(
     val id: Long? = null,
-    val name: String,
+    val code: String,
     val course: Course,
-    val period: AcademicTerm,
+    val academicTerm: AcademicTerm,
 )

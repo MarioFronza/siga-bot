@@ -14,7 +14,7 @@ class UserDetailsImplTest : FunSpec({
             email = "student@test.com",
             passwordHash = "hash",
             roles = listOf(Role(name = "STUDENT")),
-            sigaCredential = SigaCredential(cpfHash = "cpf", passwordHash = "password")
+            sigaCredential = SigaCredential(cpfCiphertext = "cpf", cpfDigest = byteArrayOf(1), passwordCiphertext = "password")
         )
 
         UserDetailsImpl(user).authorities.map { it.authority } shouldBe listOf("STUDENT")

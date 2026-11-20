@@ -1,8 +1,8 @@
 package br.com.mariofronza.sigabot.usecases.user.dto
 
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
+import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 
 data class UserPeriodsOutput(
     val username: String,
-    val periods: Set<AcademicTerm>
+    val periods: List<AcademicTermOutput>
 )

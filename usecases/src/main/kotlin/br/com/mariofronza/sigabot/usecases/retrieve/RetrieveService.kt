@@ -19,6 +19,7 @@ import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
 import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectOfferingService
 import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectService
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
+import org.slf4j.LoggerFactory
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 
@@ -48,11 +49,9 @@ class RetrieveService(
         completeExtraction: Boolean = false,
         currentUser: User? = null
     ): RetrieveOutput {
-        println("Current user: ${currentUser?.username}")
-
         var user = currentUser ?: getCurrentUser()
 
-        println("User: ${user.username}")
+        logger.debug("Retrieving SIGA results for user {}", user.externalId)
 
         // The scraper only speaks UDESC's SIGA so far.
         val account = user.academicAccounts.first { it.institution.code == Institution.UDESC }
@@ -77,10 +76,8 @@ class RetrieveService(
                 val subjectOffering = subjectOfferingService.findOrCreate(subject, classSection, it.courseLoad)
 
                 if (enrollmentService.hasGradeChanged(user, subjectOffering, it)) {
-                    println("New grade update for ${user.username}")
+                    logger.info("New grade for user {} in {}", user.externalId, subject.name)
                     notifyWatchers(user, subject.name)
-                } else {
-                    println("User ${user.username} does not have any gradle update")
                 }
 
                 enrollmentService.record(user, subjectOffering, it)
@@ -101,7 +98,6 @@ class RetrieveService(
 
     private fun notifyWatchers(user: User, subjectName: String) {
         val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
-        println(message)
         socketNotification.notifyUser(user.externalId!!, message)
     }
 
@@ -115,5 +111,9 @@ class RetrieveService(
             cpf = cryptographyService.decrypt(account.loginCiphertext),
             password = cryptographyService.decrypt(account.passwordCiphertext)
         )
+    }
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(RetrieveService::class.java)
     }
 }

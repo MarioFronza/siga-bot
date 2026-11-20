@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/MarioFronza/siga-bot/compare/v1.0.1...v2.0.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* the database must be recreated, because Flyway refuses to start on a schema it did not create. API responses no longer include internal period ids, year is an integer, and notifications drop entityId.
+
+### Features
+
+* manage the schema with flyway and redesign the data model ([#26](https://github.com/MarioFronza/siga-bot/issues/26)) ([1f97e22](https://github.com/MarioFronza/siga-bot/commit/1f97e223db07568b6879ce48b8035070c5ce02c6))
+
 ## [1.0.1](https://github.com/MarioFronza/siga-bot/compare/v1.0.0...v1.0.1) (2026-11-20)
 
 

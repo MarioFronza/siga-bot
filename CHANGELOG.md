@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/MarioFronza/siga-bot/compare/v2.0.0...v2.0.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* keep the hourly retrieve going when one student fails ([#29](https://github.com/MarioFronza/siga-bot/issues/29)) ([ba0b9ff](https://github.com/MarioFronza/siga-bot/commit/ba0b9ff5ee747f0584545df63ecc51a7aef62914))
+
 ## [2.0.0](https://github.com/MarioFronza/siga-bot/compare/v1.0.1...v2.0.0) (2026-11-20)
 
 

@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.extraction.apisteps
 
+import br.com.mariofronza.sigabot.usecases.extraction.SigaLayoutChangedException
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepSuccess
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepError
 import br.com.mariofronza.sigabot.extraction.extractor.ExtractorContext
@@ -12,7 +13,7 @@ abstract class Step {
 
     fun <T> Response<T>.getBody() = with(this) {
         if (isSuccessful) {
-            val response = this.body()!!
+            val response = this.body() ?: throw SigaLayoutChangedException("SIGA answered ${code()} without a body")
             if (response is ResponseBody) {
                 val responseBody = (response as ResponseBody)
                 val responseBodyString = responseBody.stringNotClose()
@@ -29,7 +30,7 @@ abstract class Step {
 
     fun <T> Response<T>.updateViewState(extractorContext: ExtractorContext): Response<T> {
         if (isSuccessful) {
-            val response = this.body()!!
+            val response = this.body()
             if (response is ResponseBody) {
                 val responseBody = (response as ResponseBody)
                 val document = Jsoup.parse(responseBody.stringNotClose())
@@ -69,7 +70,7 @@ abstract class Step {
 
     fun <T> Response<T>.updateEndpoint(extractorContext: ExtractorContext): Response<T> {
         if (isSuccessful) {
-            val response = this.body()!!
+            val response = this.body()
             if (response is ResponseBody) {
                 val responseBody = (response as ResponseBody)
                 val document = Jsoup.parse(responseBody.stringNotClose())

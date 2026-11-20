@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.extraction.parser.dashboard
 
+import br.com.mariofronza.sigabot.extraction.parser.requireElementById
 import org.jsoup.Jsoup
 import org.springframework.stereotype.Component
 
@@ -13,7 +14,7 @@ class DashboardParser {
 
     fun extractSemesterResultsUrl(responseContent: String): String {
         val document = Jsoup.parse(responseContent)
-        val input = document.getElementById("formPrincipal:linkAbre")!!
+        val input = document.requireElementById("formPrincipal:linkAbre")
         return input.attr("value")
     }
 

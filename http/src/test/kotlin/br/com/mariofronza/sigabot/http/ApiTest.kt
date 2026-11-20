@@ -5,13 +5,9 @@ import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.enrollment.Attendance
 import br.com.mariofronza.sigabot.entity.enrollment.Grade
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
-import br.com.mariofronza.sigabot.entity.course.Course
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
-import br.com.mariofronza.sigabot.entity.institution.Institution
-import br.com.mariofronza.sigabot.entity.section.ClassSection
-import br.com.mariofronza.sigabot.entity.subject.Subject
-import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
-import br.com.mariofronza.sigabot.entity.term.AcademicTerm
+import br.com.mariofronza.sigabot.entity.catalog.SubjectOffering
+import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.http.security.AuthService
@@ -22,10 +18,9 @@ import br.com.mariofronza.sigabot.usecases.notification.NotificationService
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput
 import br.com.mariofronza.sigabot.usecases.retrieve.RetrieveService
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
-import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
 import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
-import br.com.mariofronza.sigabot.usecases.user.EmailAlreadyRegisteredException
-import br.com.mariofronza.sigabot.usecases.user.UserNotFoundException
+import br.com.mariofronza.sigabot.entity.user.EmailAlreadyRegisteredException
+import br.com.mariofronza.sigabot.entity.user.UserNotFoundException
 import br.com.mariofronza.sigabot.usecases.user.UserService
 import br.com.mariofronza.sigabot.usecases.user.dto.UserOutput
 import io.kotest.core.spec.style.FunSpec
@@ -64,7 +59,6 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var userDetailsService: UserDetailsService
     @Autowired lateinit var userService: UserService
     @Autowired lateinit var retrieveService: RetrieveService
-    @Autowired lateinit var academicTermService: AcademicTermService
     @Autowired lateinit var enrollmentService: EnrollmentService
     @Autowired lateinit var notificationService: NotificationService
 
@@ -73,23 +67,21 @@ class ApiTest : FunSpec() {
         @Bean fun userDetailsService(): UserDetailsService = mockk()
         @Bean fun userService(): UserService = mockk()
         @Bean fun retrieveService(): RetrieveService = mockk()
-        @Bean fun academicTermService(): AcademicTermService = mockk()
         @Bean fun enrollmentService(): EnrollmentService = mockk()
         @Bean fun notificationService(): NotificationService = mockk(relaxed = true)
     }
 
     private val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
     private val passwordHash = BCryptPasswordEncoder().encode("app-password").shouldNotBeNull()
-    private val udesc = Institution(id = 1, code = Institution.UDESC, name = "UDESC", gradeScaleMax = 10.0)
 
-    private fun signedIn(vararg roles: String): User {
+    private fun signedIn(vararg roles: Role): User {
         val user = User(
             id = UserId(externalId),
             isActive = true,
             fullName = "Ana Souza",
             email = Email.of("ana@test.com"),
             passwordHash = passwordHash,
-            roles = roles.map { Role(name = it) },
+            roles = roles.toSet(),
             academicAccounts = emptyList(),
         )
         every { userDetailsService.loadUserByUsername("ana@test.com") } returns UserDetailsImpl(user)
@@ -106,12 +98,10 @@ class ApiTest : FunSpec() {
     }
 
     private fun enrollment(user: User): Enrollment {
-        val term = AcademicTerm(institution = udesc, period = AcademicPeriod(2026, 1))
-        val section = ClassSection(code = "ESO-1", course = Course(institution = udesc, name = "ESO"), academicTerm = term)
         return Enrollment(
-            user = user,
-            subjectOffering = SubjectOffering(subject = Subject(institution = udesc, name = "Banco de Dados"), classSection = section, courseLoad = 72),
-            finalGrade = Grade(8.5),
+            studentId = user.id,
+            offering = SubjectOffering(InstitutionCode.UDESC, AcademicPeriod(2026, 1), "ESO", "ESO-1", "Banco de Dados", courseLoad = 72),
+            grade = Grade(8.5),
             absences = 2,
             attendance = Attendance(95.0),
             result = "Aprovado",
@@ -158,7 +148,7 @@ class ApiTest : FunSpec() {
         }
 
         test("opens a session with the app credentials") {
-            signedIn("STUDENT")
+            signedIn(Role.STUDENT)
 
             mockMvc.post("/api/v1/sessions") { json("""{"email":"ana@test.com","password":"app-password"}""") }
                 .andExpect {
@@ -169,14 +159,14 @@ class ApiTest : FunSpec() {
         }
 
         test("refuses a session with a wrong password") {
-            signedIn("STUDENT")
+            signedIn(Role.STUDENT)
 
             mockMvc.post("/api/v1/sessions") { json("""{"email":"ana@test.com","password":"wrong"}""") }
                 .andExpect { status { isUnauthorized() } }
         }
 
         test("refreshes a session from the refresh token in the body") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
             val refreshToken = jwtUtil.generateRefreshToken(UserDetailsImpl(user), "test")
 
             mockMvc.post("/api/v1/sessions/refresh") { json("""{"refreshToken":"$refreshToken"}""") }
@@ -199,7 +189,7 @@ class ApiTest : FunSpec() {
         }
 
         test("shows the signed in user") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
 
             mockMvc.get("/api/v1/me") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -210,7 +200,7 @@ class ApiTest : FunSpec() {
         }
 
         test("rejects an unsupported api version") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
 
             mockMvc.get("/api/v2/me") { bearer(user) }.andExpect {
                 status { isBadRequest() }
@@ -219,11 +209,8 @@ class ApiTest : FunSpec() {
         }
 
         test("lists the terms the student is enrolled in") {
-            val user = signedIn("STUDENT")
-            every { academicTermService.findAllEnrolledBy(user) } returns listOf(
-                AcademicTerm(institution = udesc, period = AcademicPeriod(2026, 2)),
-                AcademicTerm(institution = udesc, period = AcademicPeriod(2026, 1)),
-            )
+            val user = signedIn(Role.STUDENT)
+            every { enrollmentService.findPeriods(user.id) } returns listOf(AcademicPeriod(2026, 2), AcademicPeriod(2026, 1))
 
             mockMvc.get("/api/v1/me/terms") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -234,8 +221,8 @@ class ApiTest : FunSpec() {
         }
 
         test("lists the enrollments of a term") {
-            val user = signedIn("STUDENT")
-            every { enrollmentService.findAll(user, AcademicPeriod(2026, 1)) } returns listOf(enrollment(user))
+            val user = signedIn(Role.STUDENT)
+            every { enrollmentService.findAll(user.id, AcademicPeriod(2026, 1)) } returns listOf(enrollment(user))
 
             mockMvc.get("/api/v1/me/terms/2026/1/enrollments") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -250,7 +237,7 @@ class ApiTest : FunSpec() {
         }
 
         test("syncs one term from SIGA") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
             every { retrieveService.retrieveForUser(any(), user) } returns listOf(AcademicTermOutput(2026, 1))
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"year":2026,"term":1}""") }
@@ -261,7 +248,7 @@ class ApiTest : FunSpec() {
         }
 
         test("syncs every term from SIGA") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
             every { retrieveService.fullRetrieve(user) } returns listOf(AcademicTermOutput(2026, 1))
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"scope":"full"}""") }
@@ -271,7 +258,7 @@ class ApiTest : FunSpec() {
         }
 
         test("asks for the term when syncing one term") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"year":2026}""") }
                 .andExpect {
@@ -281,9 +268,9 @@ class ApiTest : FunSpec() {
         }
 
         test("pages the notifications of the signed in user") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
             val createdAt = Instant.parse("2026-11-20T12:00:00Z")
-            every { notificationService.listNotifications(user, PageRequest.of(1, 5)) } returns
+            every { notificationService.listNotifications(user.id, PageRequest.of(1, 5)) } returns
                 PageImpl(listOf(NotificationOutput(7, "Nova nota", createdAt)), PageRequest.of(1, 5), 6)
 
             mockMvc.get("/api/v1/me/notifications?page=1&size=5") { bearer(user) }.andExpect {
@@ -296,14 +283,14 @@ class ApiTest : FunSpec() {
         }
 
         test("forbids students from broadcasting") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
 
             mockMvc.post("/api/v1/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect { status { isForbidden() } }
         }
 
         test("lets admins broadcast") {
-            val user = signedIn("ADMIN")
+            val user = signedIn(Role.ADMIN)
 
             mockMvc.post("/api/v1/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect { status { isAccepted() } }
@@ -312,7 +299,7 @@ class ApiTest : FunSpec() {
         }
 
         test("lets admins notify one user") {
-            val user = signedIn("ADMIN")
+            val user = signedIn(Role.ADMIN)
             every { notificationService.createNotificationToUser(UserId(externalId), "Oi") } returns
                 NotificationOutput(7, "Oi", Instant.parse("2026-11-20T12:00:00Z"))
 
@@ -324,7 +311,7 @@ class ApiTest : FunSpec() {
         }
 
         test("answers 404 when notifying an unknown user") {
-            val user = signedIn("ADMIN")
+            val user = signedIn(Role.ADMIN)
             val unknown = UserId.generate()
             every { notificationService.createNotificationToUser(unknown, "Oi") } throws UserNotFoundException(unknown)
 
@@ -336,7 +323,7 @@ class ApiTest : FunSpec() {
         }
 
         test("refuses a token for a user that no longer exists") {
-            val user = signedIn("STUDENT")
+            val user = signedIn(Role.STUDENT)
             every { userDetailsService.loadUserByUsername("ana@test.com") } throws UsernameNotFoundException("gone")
 
             mockMvc.get("/api/v1/me") { bearer(user) }.andExpect { status { isUnauthorized() } }

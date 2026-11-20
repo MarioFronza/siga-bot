@@ -3,7 +3,7 @@ package br.com.mariofronza.sigabot.persistence.notification.gateway
 import br.com.mariofronza.sigabot.persistence.user.gateway.userKey
 import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.entity.notification.Notification
-import br.com.mariofronza.sigabot.entity.user.User
+import br.com.mariofronza.sigabot.entity.user.UserId
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.NOTIFICATIONS
 import br.com.mariofronza.sigabot.usecases.notification.gateway.NotificationInteractor
 import org.jooq.DSLContext
@@ -20,20 +20,20 @@ class NotificationRepositoryInteractor(
     private val dsl: DSLContext,
 ) : NotificationInteractor {
 
-    override fun findByUser(user: User, pageable: Pageable): Page<Notification> {
-        val ofUser = NOTIFICATIONS.USER_ID.eq(userKey(user.id))
+    override fun findByRecipient(recipient: UserId, pageable: Pageable): Page<Notification> {
+        val ofUser = NOTIFICATIONS.USER_ID.eq(userKey(recipient))
         val notifications = dsl.selectFrom(NOTIFICATIONS)
             .where(ofUser)
             .orderBy(NOTIFICATIONS.CREATED_AT.desc(), NOTIFICATIONS.ID.desc())
             .limit(pageable.pageSize)
             .offset(pageable.offset)
-            .fetch { Notification(id = it.id, user = user, message = it.message, createdAt = it.notNull(NOTIFICATIONS.CREATED_AT).toInstant()) }
+            .fetch { Notification(id = it.id, recipient = recipient, message = it.message, createdAt = it.notNull(NOTIFICATIONS.CREATED_AT).toInstant()) }
         return PageImpl(notifications, PageRequest.of(pageable.pageNumber, pageable.pageSize), dsl.fetchCount(NOTIFICATIONS, ofUser).toLong())
     }
 
     override fun save(notification: Notification): Notification {
         val saved = dsl.insertInto(NOTIFICATIONS)
-            .set(NOTIFICATIONS.USER_ID, userKey(notification.user.id))
+            .set(NOTIFICATIONS.USER_ID, userKey(notification.recipient))
             .set(NOTIFICATIONS.MESSAGE, notification.message)
             .returning(NOTIFICATIONS.ID, NOTIFICATIONS.CREATED_AT)
             .fetchSingle()

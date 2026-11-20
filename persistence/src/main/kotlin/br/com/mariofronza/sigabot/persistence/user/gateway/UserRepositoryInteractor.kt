@@ -8,7 +8,8 @@ import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.persistence.institution.gateway.toInstitution
+import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
+import br.com.mariofronza.sigabot.persistence.institution.gateway.institutionKey
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.ACADEMIC_ACCOUNTS
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.INSTITUTIONS
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.ROLES
@@ -51,7 +52,7 @@ class UserRepositoryInteractor(
                     .from(USER_ROLES)
                     .join(ROLES).on(ROLES.ID.eq(USER_ROLES.ROLE_ID))
                     .where(USER_ROLES.USER_ID.eq(USERS.ID))
-            ).convertFrom { roles -> roles.map { (role) -> Role(id = role.id, name = role.name) } },
+            ).convertFrom { roles -> roles.map { (role) -> Role.valueOf(role.name) }.toSet() },
             multiset(
                 select(ACADEMIC_ACCOUNTS, INSTITUTIONS)
                     .from(ACADEMIC_ACCOUNTS)
@@ -60,7 +61,7 @@ class UserRepositoryInteractor(
             ).convertFrom { accounts ->
                 accounts.map { (account, institution) ->
                     AcademicAccount(
-                        institution = institution.toInstitution(),
+                        institution = InstitutionCode(institution.code),
                         loginCiphertext = account.loginCiphertext,
                         loginDigest = account.loginDigest,
                         passwordCiphertext = account.passwordCiphertext,
@@ -104,12 +105,15 @@ class UserRepositoryInteractor(
             .returning(USERS.ID)
             .fetchSingle { it.id }
         user.roles.forEach {
-            dsl.insertInto(USER_ROLES).set(USER_ROLES.USER_ID, id).set(USER_ROLES.ROLE_ID, it.id).execute()
+            dsl.insertInto(USER_ROLES)
+                .set(USER_ROLES.USER_ID, id)
+                .set(USER_ROLES.ROLE_ID, field(select(ROLES.ID).from(ROLES).where(ROLES.NAME.eq(it.name))))
+                .execute()
         }
         user.academicAccounts.forEach {
             dsl.insertInto(ACADEMIC_ACCOUNTS)
                 .set(ACADEMIC_ACCOUNTS.USER_ID, id)
-                .set(ACADEMIC_ACCOUNTS.INSTITUTION_ID, it.institution.id)
+                .set(ACADEMIC_ACCOUNTS.INSTITUTION_ID, institutionKey(it.institution))
                 .set(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT, it.loginCiphertext)
                 .set(ACADEMIC_ACCOUNTS.LOGIN_DIGEST, it.loginDigest)
                 .set(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT, it.passwordCiphertext)

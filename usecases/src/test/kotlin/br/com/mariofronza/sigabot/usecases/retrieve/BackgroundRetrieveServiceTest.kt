@@ -16,7 +16,7 @@ class BackgroundRetrieveServiceTest : FunSpec({
         isActive = true,
         email = Email.of("student$id@test.com"),
         passwordHash = "hash",
-        roles = emptyList(),
+        roles = emptySet(),
         academicAccounts = emptyList(),
     )
 

@@ -13,10 +13,10 @@ data class EnrollmentOutput(
 ) {
     companion object {
         fun from(enrollment: Enrollment) = EnrollmentOutput(
-            subject = enrollment.subjectOffering.subject.name,
-            classSection = enrollment.subjectOffering.classSection.code,
-            courseLoad = enrollment.subjectOffering.courseLoad,
-            finalGrade = enrollment.finalGrade.value,
+            subject = enrollment.offering.subject,
+            classSection = enrollment.offering.classSection,
+            courseLoad = enrollment.offering.courseLoad,
+            finalGrade = enrollment.grade.value,
             absences = enrollment.absences,
             attendancePercentage = enrollment.attendance.percentage,
             result = enrollment.result,

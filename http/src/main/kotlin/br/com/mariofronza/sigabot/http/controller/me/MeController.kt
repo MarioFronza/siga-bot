@@ -8,7 +8,6 @@ import br.com.mariofronza.sigabot.http.controller.me.SyncInput
 import br.com.mariofronza.sigabot.http.controller.me.SyncScope
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
 import br.com.mariofronza.sigabot.usecases.siga.enrollment.dto.EnrollmentOutput
-import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
 import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 import br.com.mariofronza.sigabot.usecases.user.dto.UserOutput
 import org.springframework.http.HttpStatus.BAD_REQUEST
@@ -24,7 +23,6 @@ import org.springframework.web.server.ResponseStatusException
 @RestController
 @RequestMapping("/api/{version}/me", version = "v1")
 class MeController(
-    private val academicTermService: AcademicTermService,
     private val enrollmentService: EnrollmentService,
     private val retrieveService: RetrieveService,
 ) {
@@ -34,14 +32,14 @@ class MeController(
 
     @GetMapping("/terms")
     fun terms(@AuthenticationPrincipal principal: UserDetailsImpl): List<AcademicTermOutput> =
-        academicTermService.findAllEnrolledBy(principal.toUser()).map(AcademicTermOutput::from).distinct()
+        enrollmentService.findPeriods(principal.toUser().id).map(AcademicTermOutput::from)
 
     @GetMapping("/terms/{year}/{term}/enrollments")
     fun enrollments(
         @AuthenticationPrincipal principal: UserDetailsImpl,
         @PathVariable year: Int,
         @PathVariable term: Int,
-    ): List<EnrollmentOutput> = enrollmentService.findAll(principal.toUser(), AcademicPeriod(year, term)).map(EnrollmentOutput::from)
+    ): List<EnrollmentOutput> = enrollmentService.findAll(principal.toUser().id, AcademicPeriod(year, term)).map(EnrollmentOutput::from)
 
     @PostMapping("/syncs")
     fun sync(@AuthenticationPrincipal principal: UserDetailsImpl, @RequestBody input: SyncInput): List<AcademicTermOutput> {

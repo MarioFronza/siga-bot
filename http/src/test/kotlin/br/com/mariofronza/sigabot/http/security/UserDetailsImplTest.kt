@@ -13,7 +13,7 @@ class UserDetailsImplTest : FunSpec({
             isActive = true,
             email = Email.of("student@test.com"),
             passwordHash = "hash",
-            roles = listOf(Role(name = "STUDENT")),
+            roles = setOf(Role.STUDENT),
             academicAccounts = emptyList()
         )
 

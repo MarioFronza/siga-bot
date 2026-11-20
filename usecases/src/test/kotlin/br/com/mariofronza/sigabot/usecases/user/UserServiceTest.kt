@@ -1,12 +1,14 @@
 package br.com.mariofronza.sigabot.usecases.user
 
 import br.com.mariofronza.sigabot.entity.institution.Institution
+import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
+import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.credential.gateway.SecretCipher
+import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionInteractor
 import br.com.mariofronza.sigabot.usecases.user.dto.CreateUserInput
 import br.com.mariofronza.sigabot.usecases.user.dto.SigaCredentialRequest
-import br.com.mariofronza.sigabot.usecases.institution.gateway.InstitutionInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.AcademicAccountInteractor
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import io.kotest.assertions.throwables.shouldThrow
@@ -18,85 +20,44 @@ import io.mockk.slot
 
 class UserServiceTest : FunSpec({
 
-    val udesc = Institution(id = 1, code = "udesc", name = "UDESC", gradeScaleMax = 10.0)
+    val udesc = Institution(code = InstitutionCode.UDESC, name = "UDESC", gradeScaleMax = 10.0)
+    val userInteractor: UserInteractor = mockk()
+    val institutionInteractor: InstitutionInteractor = mockk()
+    val academicAccountInteractor: AcademicAccountInteractor = mockk()
+    val secretCipher: SecretCipher = mockk()
+    val saved = slot<User>()
+    val service = UserService(userInteractor, institutionInteractor, academicAccountInteractor, { "hashed-$it" }, secretCipher)
 
-    test("signs up every new user as STUDENT") {
-        val userInteractor: UserInteractor = mockk()
-        val roleService: RoleService = mockk()
-        val institutionInteractor: InstitutionInteractor = mockk()
-        val academicAccountInteractor: AcademicAccountInteractor = mockk()
-        val secretCipher: SecretCipher = mockk()
-        val savedUser = slot<User>()
+    fun signUp(cpf: String = "00000000000") = service.createUser(
+        CreateUserInput(email = "student@test.com", password = "secret", sigaCredential = SigaCredentialRequest(cpf = cpf, password = "siga"))
+    )
 
+    beforeTest {
         every { userInteractor.findByEmail(any()) } returns null
-        every { institutionInteractor.findByCode("udesc") } returns udesc
-        every { academicAccountInteractor.existsByLoginDigest(udesc, any()) } returns false
-        every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
+        every { institutionInteractor.findByCode(InstitutionCode.UDESC) } returns udesc
+        every { academicAccountInteractor.existsByLoginDigest(InstitutionCode.UDESC, any()) } returns false
         every { secretCipher.encrypt(any()) } returns "encrypted"
         every { secretCipher.digest(any()) } returns byteArrayOf(1)
-        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured }
+        every { userInteractor.save(capture(saved)) } answers { saved.captured }
+    }
 
-        UserService(userInteractor, roleService, institutionInteractor, academicAccountInteractor, { "hashed-$it" }, secretCipher)
-            .createUser(
-                CreateUserInput(
-                    email = "attacker@test.com",
-                    password = "secret",
-                    sigaCredential = SigaCredentialRequest(cpf = "00000000000", password = "siga")
-                )
-            )
+    test("signs up every new user as STUDENT") {
+        signUp()
 
-        savedUser.captured.roles.map { it.name } shouldBe listOf("STUDENT")
+        saved.captured.roles shouldBe setOf(Role.STUDENT)
     }
 
     test("answers with the id the domain gave the new user") {
-        val savedUser = slot<User>()
-        val userInteractor: UserInteractor = mockk()
-        val roleService: RoleService = mockk()
-        val institutionInteractor: InstitutionInteractor = mockk()
-        val academicAccountInteractor: AcademicAccountInteractor = mockk()
-        val secretCipher: SecretCipher = mockk()
+        val output = signUp()
 
-        every { userInteractor.findByEmail(any()) } returns null
-        every { institutionInteractor.findByCode("udesc") } returns udesc
-        every { academicAccountInteractor.existsByLoginDigest(udesc, any()) } returns false
-        every { roleService.findByName(any()) } answers { Role(id = 1, name = firstArg()) }
-        every { secretCipher.encrypt(any()) } returns "encrypted"
-        every { secretCipher.digest(any()) } returns byteArrayOf(1)
-        every { userInteractor.save(capture(savedUser)) } answers { savedUser.captured }
-
-        val output = UserService(userInteractor, roleService, institutionInteractor, academicAccountInteractor, { "hashed-$it" }, secretCipher)
-            .createUser(
-                CreateUserInput(
-                    email = "student@test.com",
-                    password = "secret",
-                    sigaCredential = SigaCredentialRequest(cpf = "00000000000", password = "siga")
-                )
-            )
-
-        output.id shouldBe savedUser.captured.id.value
+        output.id shouldBe saved.captured.id.value
     }
 
-    test("rejects a sign-up whose CPF is already registered") {
-        val userInteractor: UserInteractor = mockk()
-        val institutionInteractor: InstitutionInteractor = mockk()
-        val academicAccountInteractor: AcademicAccountInteractor = mockk()
-        val secretCipher: SecretCipher = mockk()
-
-        every { userInteractor.findByEmail(any()) } returns null
+    test("rejects a sign-up whose CPF is already registered, whatever its formatting") {
         every { secretCipher.digest("00000000000") } returns byteArrayOf(7)
-        every { institutionInteractor.findByCode("udesc") } returns udesc
-        every { academicAccountInteractor.existsByLoginDigest(udesc, byteArrayOf(7)) } returns true
+        every { academicAccountInteractor.existsByLoginDigest(InstitutionCode.UDESC, byteArrayOf(7)) } returns true
 
-        val error = shouldThrow<AcademicAccountAlreadyRegisteredException> {
-            UserService(userInteractor, mockk(), institutionInteractor, academicAccountInteractor, { "hashed-$it" }, secretCipher)
-                .createUser(
-                    CreateUserInput(
-                        email = "student@test.com",
-                        password = "secret",
-                        sigaCredential = SigaCredentialRequest(cpf = "000.000.000-00", password = "siga")
-                    )
-                )
-        }
+        val error = shouldThrow<AcademicAccountAlreadyRegisteredException> { signUp(cpf = "000.000.000-00") }
 
         error.message shouldBe "Siga credential already exists"
     }

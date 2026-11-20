@@ -1,7 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.notification
 
 import br.com.mariofronza.sigabot.entity.notification.Notification
-import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput
 import br.com.mariofronza.sigabot.usecases.notification.gateway.NotificationInteractor
 import br.com.mariofronza.sigabot.usecases.user.UserService
@@ -17,16 +16,16 @@ class NotificationService(
     private val socketNotification: PushNotification,
 ) {
 
-    fun listNotifications(user: User, pageable: Pageable): Page<NotificationOutput> =
-        notificationInteractor.findByUser(user, pageable).map(NotificationOutput::from)
+    fun listNotifications(recipient: UserId, pageable: Pageable): Page<NotificationOutput> =
+        notificationInteractor.findByRecipient(recipient, pageable).map(NotificationOutput::from)
 
     fun createNotificationToAll(message: String) {
         socketNotification.notifyAllUsers(message)
     }
 
     fun createNotificationToUser(id: UserId, message: String): NotificationOutput {
-        val user = userService.findById(id)
-        socketNotification.notifyUser(id, message)
-        return NotificationOutput.from(notificationInteractor.save(Notification(user = user, message = message)))
+        val recipient = userService.findById(id).id
+        socketNotification.notifyUser(recipient, message)
+        return NotificationOutput.from(notificationInteractor.save(Notification(recipient = recipient, message = message)))
     }
 }

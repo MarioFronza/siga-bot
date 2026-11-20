@@ -5,7 +5,6 @@ plugins {
 }
 
 allprojects {
-    version = "1.0"
     group = "br.com.mariofronza"
 }
 

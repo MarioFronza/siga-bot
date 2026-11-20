@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.identity
 
+import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
@@ -23,6 +24,7 @@ class RegisterStudent(
     private val syncQueue: SyncQueue,
     private val transaction: TransactionRunner,
     private val clock: Clock,
+    private val adminEmails: Set<Email> = emptySet(),
 ) {
 
     data class Command(val email: String, val password: String, val cpf: String, val sigaPassword: String)
@@ -43,6 +45,7 @@ class RegisterStudent(
             passwordCiphertext = secretCipher.encrypt(command.sigaPassword),
         )
         val student = User.registerStudent(email, passwordHasher.hash(command.password), account)
+            .let { if (email in adminEmails) it.grant(Role.ADMIN) else it }
         return transaction.inTransaction {
             users.save(student).also { syncQueue.enqueue(it.id, clock.instant()) }
         }

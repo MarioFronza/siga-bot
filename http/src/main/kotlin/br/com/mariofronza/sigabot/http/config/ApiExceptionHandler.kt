@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus.BAD_REQUEST
 import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.EmailAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.UserNotFoundException
-import com.auth0.jwt.exceptions.JWTVerificationException
+import br.com.mariofronza.sigabot.entity.session.InvalidRefreshTokenException
 import org.springframework.http.HttpStatus.CONFLICT
 import org.springframework.http.HttpStatus.NOT_FOUND
 import org.springframework.http.HttpStatus.UNAUTHORIZED
@@ -39,6 +39,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(IllegalArgumentException::class)
     fun badRequest(e: IllegalArgumentException): ProblemDetail = ProblemDetail.forStatusAndDetail(BAD_REQUEST, e.message)
 
-    @ExceptionHandler(JWTVerificationException::class)
-    fun unauthorized(): ProblemDetail = ProblemDetail.forStatusAndDetail(UNAUTHORIZED, "Invalid refresh token")
+    @ExceptionHandler(InvalidRefreshTokenException::class)
+    fun unauthorized(e: InvalidRefreshTokenException): ProblemDetail = ProblemDetail.forStatusAndDetail(UNAUTHORIZED, e.message)
 }

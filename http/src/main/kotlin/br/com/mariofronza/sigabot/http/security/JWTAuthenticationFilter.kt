@@ -1,5 +1,8 @@
 package br.com.mariofronza.sigabot.http.security
 
+import br.com.mariofronza.sigabot.http.controller.session.SessionResponse
+import br.com.mariofronza.sigabot.usecases.identity.OpenSession
+import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import br.com.mariofronza.sigabot.entity.user.User
 import org.springframework.http.HttpHeaders.AUTHORIZATION
 import br.com.mariofronza.sigabot.http.security.JWTUtil.Companion.BEARER
@@ -17,7 +20,7 @@ import jakarta.servlet.http.HttpServletResponse
 
 class JWTAuthenticationFilter(
     authenticationManager: AuthenticationManager,
-    private val jwtUtil: JWTUtil
+    private val openSession: OpenSession,
 ) : UsernamePasswordAuthenticationFilter(authenticationManager) {
 
     override fun attemptAuthentication(request: HttpServletRequest, response: HttpServletResponse): Authentication {
@@ -38,18 +41,10 @@ class JWTAuthenticationFilter(
         chain: FilterChain,
         authResult: Authentication
     ) {
-        val user = (authResult.principal as UserDetailsImpl)
-        val accessToken = jwtUtil.generateAccessToken(user, request.requestURI)
-        val refreshToken = jwtUtil.generateRefreshToken(user, request.requestURI)
-
-        response.addHeader(AUTHORIZATION, "$BEARER $accessToken")
-        val tokenMap = mapOf(
-            "accessToken" to accessToken,
-            "refreshToken" to refreshToken,
-            "userId" to user.toUser().id.toString()
-        )
-
-        jacksonObjectMapper().writeValue(response.outputStream, tokenMap)
+        val session = openSession((authResult.principal as UserDetailsImpl).toUser())
+        response.addHeader(AUTHORIZATION, "$BEARER ${session.accessToken}")
+        response.contentType = APPLICATION_JSON_VALUE
+        jacksonObjectMapper().writeValue(response.outputStream, SessionResponse.from(session))
     }
 }
 

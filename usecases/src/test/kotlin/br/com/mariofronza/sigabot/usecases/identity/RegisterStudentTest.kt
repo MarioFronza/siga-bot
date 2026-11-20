@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.identity
 
+import br.com.mariofronza.sigabot.entity.user.Email
 import java.time.ZoneOffset
 import java.time.Instant
 import java.time.Clock
@@ -55,6 +56,15 @@ class RegisterStudentTest : FunSpec({
         student.email.value shouldBe "student@test.com"
         student.passwordHash shouldBe "hashed-secret"
         student.academicAccounts.single().passwordCiphertext shouldBe "encrypted"
+    }
+
+    test("grants ADMIN at sign-up only to an email the operator listed") {
+        val withAdmins = RegisterStudent(
+            users, institutions, { "hashed-$it" }, secretCipher, queue, transaction, Clock.fixed(now, ZoneOffset.UTC),
+            adminEmails = setOf(Email.of("student@test.com")),
+        )
+
+        withAdmins(RegisterStudent.Command("student@test.com", "secret", "00000000000", "siga")).roles shouldBe setOf(Role.STUDENT, Role.ADMIN)
     }
 
     test("queues the first sync of a new student right away") {

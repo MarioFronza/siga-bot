@@ -1,5 +1,10 @@
 package br.com.mariofronza.sigabot.http
 
+import br.com.mariofronza.sigabot.entity.session.InvalidRefreshTokenException
+import br.com.mariofronza.sigabot.usecases.identity.Session
+import br.com.mariofronza.sigabot.usecases.identity.RevokeSession
+import br.com.mariofronza.sigabot.usecases.identity.RefreshSession
+import br.com.mariofronza.sigabot.usecases.identity.OpenSession
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.entity.notification.Notification
 import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
@@ -22,7 +27,6 @@ import br.com.mariofronza.sigabot.entity.catalog.SubjectOffering
 import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.http.security.AuthService
 import br.com.mariofronza.sigabot.http.security.SecurityConfig
 import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.http.security.JWTUtil
@@ -53,8 +57,8 @@ import java.time.Instant
 import java.util.UUID
 
 @WebMvcTest
-@Import(SecurityConfig::class, JWTUtil::class, AuthService::class, ApiTest.Mocks::class)
-@TestPropertySource(properties = ["jwt.secret=test-secret-test-secret-test-secret-0123"])
+@Import(SecurityConfig::class, JWTUtil::class, ApiTest.Mocks::class)
+@TestPropertySource(properties = ["jwt.secret=test-secret-test-secret-test-secret-0123", "security.rate-limit.per-minute=1000"])
 class ApiTest : FunSpec() {
 
     @Autowired lateinit var mockMvc: MockMvc
@@ -67,6 +71,9 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var listNotifications: ListNotifications
     @Autowired lateinit var broadcastNotification: BroadcastNotification
     @Autowired lateinit var notifyStudent: NotifyStudent
+    @Autowired lateinit var openSession: OpenSession
+    @Autowired lateinit var refreshSession: RefreshSession
+    @Autowired lateinit var revokeSession: RevokeSession
 
     @TestConfiguration
     class Mocks {
@@ -78,6 +85,9 @@ class ApiTest : FunSpec() {
         @Bean fun listNotifications(): ListNotifications = mockk()
         @Bean fun broadcastNotification(): BroadcastNotification = mockk(relaxed = true)
         @Bean fun notifyStudent(): NotifyStudent = mockk()
+        @Bean fun openSession(): OpenSession = mockk()
+        @Bean fun refreshSession(): RefreshSession = mockk()
+        @Bean fun revokeSession(): RevokeSession = mockk(relaxed = true)
     }
 
     private val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
@@ -98,7 +108,7 @@ class ApiTest : FunSpec() {
     }
 
     private fun MockHttpServletRequestDsl.bearer(user: User) {
-        header("Authorization", "Bearer ${jwtUtil.generateAccessToken(UserDetailsImpl(user), "test")}")
+        header("Authorization", "Bearer ${jwtUtil.generateAccessToken(UserDetailsImpl(user))}")
     }
 
     private fun MockHttpServletRequestDsl.json(body: String) {
@@ -153,12 +163,14 @@ class ApiTest : FunSpec() {
         }
 
         test("opens a session with the app credentials") {
-            signedIn(Role.STUDENT)
+            val user = signedIn(Role.STUDENT)
+            every { openSession(user) } returns Session("access", "refresh", user.id)
 
             mockMvc.post("/api/v1/sessions") { json("""{"email":"ana@test.com","password":"app-password"}""") }
                 .andExpect {
                     status { isOk() }
-                    jsonPath("$.accessToken") { isString() }
+                    jsonPath("$.accessToken") { value("access") }
+                    jsonPath("$.refreshToken") { value("refresh") }
                     jsonPath("$.userId") { value(externalId.toString()) }
                 }
         }
@@ -172,16 +184,26 @@ class ApiTest : FunSpec() {
 
         test("refreshes a session from the refresh token in the body") {
             val user = signedIn(Role.STUDENT)
-            val refreshToken = jwtUtil.generateRefreshToken(UserDetailsImpl(user), "test")
+            every { refreshSession("current") } returns Session("new-access", "next", user.id)
 
-            mockMvc.post("/api/v1/sessions/refresh") { json("""{"refreshToken":"$refreshToken"}""") }
+            mockMvc.post("/api/v1/sessions/refresh") { json("""{"refreshToken":"current"}""") }
                 .andExpect {
                     status { isOk() }
-                    jsonPath("$.accessToken") { isString() }
+                    jsonPath("$.accessToken") { value("new-access") }
+                    jsonPath("$.refreshToken") { value("next") }
                 }
         }
 
+        test("logs out by revoking the session of a refresh token") {
+            mockMvc.post("/api/v1/sessions/revoke") { json("""{"refreshToken":"current"}""") }
+                .andExpect { status { isNoContent() } }
+
+            verify { revokeSession("current") }
+        }
+
         test("answers 401 as a problem when the refresh token is rejected") {
+            every { refreshSession("invalid") } throws InvalidRefreshTokenException("unknown token")
+
             mockMvc.post("/api/v1/sessions/refresh") { json("""{"refreshToken":"invalid"}""") }
                 .andExpect {
                     status { isUnauthorized() }

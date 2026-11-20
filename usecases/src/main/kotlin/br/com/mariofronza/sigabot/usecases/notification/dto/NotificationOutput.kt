@@ -10,9 +10,9 @@ data class NotificationOutput(
 ) {
     companion object {
         fun from(notification: Notification) = NotificationOutput(
-            id = notification.id!!,
+            id = checkNotNull(notification.id) { "Notification has no id until it is saved" },
             message = notification.message,
-            createdAt = notification.createdAt!!,
+            createdAt = checkNotNull(notification.createdAt) { "Notification has no creation time until it is saved" },
         )
     }
 }

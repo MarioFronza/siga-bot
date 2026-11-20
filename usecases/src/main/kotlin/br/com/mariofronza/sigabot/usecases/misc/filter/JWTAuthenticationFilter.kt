@@ -47,7 +47,7 @@ class JWTAuthenticationFilter(
         val tokenMap = mapOf(
             "accessToken" to accessToken,
             "refreshToken" to refreshToken,
-            "userId" to user.toUser().externalId.toString()
+            "userId" to user.toUser().requireExternalId().toString()
         )
 
         jacksonObjectMapper().writeValue(response.outputStream, tokenMap)

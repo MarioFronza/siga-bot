@@ -9,6 +9,6 @@ data class UserOutput(
     val fullName: String,
 ) {
     companion object {
-        fun from(user: User) = UserOutput(id = user.externalId!!, email = user.email, fullName = user.fullName)
+        fun from(user: User) = UserOutput(id = user.requireExternalId(), email = user.email, fullName = user.fullName)
     }
 }

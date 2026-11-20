@@ -53,7 +53,7 @@ class UserService(
             User(
                 email = email,
                 isActive = true,
-                passwordHash = bCryptPasswordEncoder.encode(request.password)!!,
+                passwordHash = checkNotNull(bCryptPasswordEncoder.encode(request.password)) { "BCrypt returned no hash" },
                 roles = listOf(role),
                 academicAccounts = listOf(encryptAcademicAccount(institution, request.sigaCredential)),
             )

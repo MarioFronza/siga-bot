@@ -88,7 +88,7 @@ class RetrieveService(
 
     private fun notifyWatchers(user: User, subjectName: String) {
         val message = "${user.username}, você possui uma nota nova da matéria $subjectName"
-        socketNotification.notifyUser(user.externalId!!, message)
+        socketNotification.notifyUser(user.requireExternalId(), message)
     }
 
     private fun generateSigaCredentialInput(account: AcademicAccount): SigaCredentialInput {

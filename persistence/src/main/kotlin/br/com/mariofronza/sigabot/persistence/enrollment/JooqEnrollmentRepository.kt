@@ -1,5 +1,8 @@
 package br.com.mariofronza.sigabot.persistence.enrollment
 
+import org.jooq.Table
+import org.jooq.TableField
+import org.jooq.impl.DSL.row
 import br.com.mariofronza.sigabot.entity.catalog.SubjectOffering
 import br.com.mariofronza.sigabot.entity.enrollment.Attendance
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
@@ -91,49 +94,57 @@ class JooqEnrollmentRepository(
             .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, excluded(ENROLLMENTS.ATTENDANCE_PERCENTAGE))
             .set(ENROLLMENTS.RESULT, excluded(ENROLLMENTS.RESULT))
             .set(ENROLLMENTS.UPDATED_AT, currentOffsetDateTime())
+            .where(
+                row(ENROLLMENTS.FINAL_GRADE, ENROLLMENTS.ABSENCES, ENROLLMENTS.ATTENDANCE_PERCENTAGE, ENROLLMENTS.RESULT).isDistinctFrom(
+                    excluded(ENROLLMENTS.FINAL_GRADE),
+                    excluded(ENROLLMENTS.ABSENCES),
+                    excluded(ENROLLMENTS.ATTENDANCE_PERCENTAGE),
+                    excluded(ENROLLMENTS.RESULT),
+                )
+            )
             .execute()
     }
 
     private fun saveOffering(offering: SubjectOffering): Long {
         val institutionId = institutionKey(offering.institution)
-        val courseId = dsl.insertInto(COURSES)
-            .set(COURSES.INSTITUTION_ID, institutionId)
-            .set(COURSES.NAME, offering.course)
-            .onConflict(COURSES.INSTITUTION_ID, COURSES.NAME)
-            .doUpdate().set(COURSES.NAME, excluded(COURSES.NAME))
-            .returning(COURSES.ID)
-            .fetchSingle { it.id }
-        val termId = dsl.insertInto(ACADEMIC_TERMS)
-            .set(ACADEMIC_TERMS.INSTITUTION_ID, institutionId)
-            .set(ACADEMIC_TERMS.YEAR, offering.period.year)
-            .set(ACADEMIC_TERMS.TERM, offering.period.term)
-            .onConflict(ACADEMIC_TERMS.INSTITUTION_ID, ACADEMIC_TERMS.YEAR, ACADEMIC_TERMS.TERM)
-            .doUpdate().set(ACADEMIC_TERMS.YEAR, excluded(ACADEMIC_TERMS.YEAR))
-            .returning(ACADEMIC_TERMS.ID)
-            .fetchSingle { it.id }
-        val subjectId = dsl.insertInto(SUBJECTS)
-            .set(SUBJECTS.INSTITUTION_ID, institutionId)
-            .set(SUBJECTS.NAME, offering.subject)
-            .onConflict(SUBJECTS.INSTITUTION_ID, SUBJECTS.NAME)
-            .doUpdate().set(SUBJECTS.NAME, excluded(SUBJECTS.NAME))
-            .returning(SUBJECTS.ID)
-            .fetchSingle { it.id }
-        val sectionId = dsl.insertInto(CLASS_SECTIONS)
-            .set(CLASS_SECTIONS.ACADEMIC_TERM_ID, termId)
-            .set(CLASS_SECTIONS.COURSE_ID, courseId)
-            .set(CLASS_SECTIONS.CODE, offering.classSection)
-            .onConflict(CLASS_SECTIONS.ACADEMIC_TERM_ID, CLASS_SECTIONS.COURSE_ID, CLASS_SECTIONS.CODE)
-            .doUpdate().set(CLASS_SECTIONS.CODE, excluded(CLASS_SECTIONS.CODE))
-            .returning(CLASS_SECTIONS.ID)
-            .fetchSingle { it.id }
-        return dsl.insertInto(SUBJECT_OFFERINGS)
-            .set(SUBJECT_OFFERINGS.CLASS_SECTION_ID, sectionId)
-            .set(SUBJECT_OFFERINGS.SUBJECT_ID, subjectId)
-            .set(SUBJECT_OFFERINGS.COURSE_LOAD, offering.courseLoad)
-            .onConflict(SUBJECT_OFFERINGS.CLASS_SECTION_ID, SUBJECT_OFFERINGS.SUBJECT_ID)
-            .doUpdate().set(SUBJECT_OFFERINGS.COURSE_LOAD, excluded(SUBJECT_OFFERINGS.COURSE_LOAD))
-            .returning(SUBJECT_OFFERINGS.ID)
-            .fetchSingle { it.id }
+        val courseId = idOf(COURSES, COURSES.ID, COURSES.INSTITUTION_ID.eq(institutionId).and(COURSES.NAME.eq(offering.course))) {
+            dsl.insertInto(COURSES).set(COURSES.INSTITUTION_ID, institutionId).set(COURSES.NAME, offering.course)
+                .onConflictDoNothing().returning(COURSES.ID).fetchOne(COURSES.ID)
+        }
+        val termKey = ACADEMIC_TERMS.INSTITUTION_ID.eq(institutionId)
+            .and(ACADEMIC_TERMS.YEAR.eq(offering.period.year)).and(ACADEMIC_TERMS.TERM.eq(offering.period.term))
+        val termId = idOf(ACADEMIC_TERMS, ACADEMIC_TERMS.ID, termKey) {
+            dsl.insertInto(ACADEMIC_TERMS).set(ACADEMIC_TERMS.INSTITUTION_ID, institutionId)
+                .set(ACADEMIC_TERMS.YEAR, offering.period.year).set(ACADEMIC_TERMS.TERM, offering.period.term)
+                .onConflictDoNothing().returning(ACADEMIC_TERMS.ID).fetchOne(ACADEMIC_TERMS.ID)
+        }
+        val subjectId = idOf(SUBJECTS, SUBJECTS.ID, SUBJECTS.INSTITUTION_ID.eq(institutionId).and(SUBJECTS.NAME.eq(offering.subject))) {
+            dsl.insertInto(SUBJECTS).set(SUBJECTS.INSTITUTION_ID, institutionId).set(SUBJECTS.NAME, offering.subject)
+                .onConflictDoNothing().returning(SUBJECTS.ID).fetchOne(SUBJECTS.ID)
+        }
+        val sectionKey = CLASS_SECTIONS.ACADEMIC_TERM_ID.eq(termId)
+            .and(CLASS_SECTIONS.COURSE_ID.eq(courseId)).and(CLASS_SECTIONS.CODE.eq(offering.classSection))
+        val sectionId = idOf(CLASS_SECTIONS, CLASS_SECTIONS.ID, sectionKey) {
+            dsl.insertInto(CLASS_SECTIONS).set(CLASS_SECTIONS.ACADEMIC_TERM_ID, termId)
+                .set(CLASS_SECTIONS.COURSE_ID, courseId).set(CLASS_SECTIONS.CODE, offering.classSection)
+                .onConflictDoNothing().returning(CLASS_SECTIONS.ID).fetchOne(CLASS_SECTIONS.ID)
+        }
+        val offeringKey = SUBJECT_OFFERINGS.CLASS_SECTION_ID.eq(sectionId).and(SUBJECT_OFFERINGS.SUBJECT_ID.eq(subjectId))
+        return idOf(SUBJECT_OFFERINGS, SUBJECT_OFFERINGS.ID, offeringKey) {
+            dsl.insertInto(SUBJECT_OFFERINGS)
+                .set(SUBJECT_OFFERINGS.CLASS_SECTION_ID, sectionId)
+                .set(SUBJECT_OFFERINGS.SUBJECT_ID, subjectId)
+                .set(SUBJECT_OFFERINGS.COURSE_LOAD, offering.courseLoad)
+                .onConflict(SUBJECT_OFFERINGS.CLASS_SECTION_ID, SUBJECT_OFFERINGS.SUBJECT_ID)
+                .doUpdate().set(SUBJECT_OFFERINGS.COURSE_LOAD, excluded(SUBJECT_OFFERINGS.COURSE_LOAD))
+                .where(SUBJECT_OFFERINGS.COURSE_LOAD.isDistinctFrom(excluded(SUBJECT_OFFERINGS.COURSE_LOAD)))
+                .returning(SUBJECT_OFFERINGS.ID).fetchOne(SUBJECT_OFFERINGS.ID)
+        }
+    }
+
+    private fun <R : Record> idOf(table: Table<R>, id: TableField<R, Long?>, key: Condition, write: () -> Long?): Long {
+        val find = { dsl.select(id).from(table).where(key).fetchOne(id) }
+        return write() ?: checkNotNull(find()) { "No ${table.name} row matches $key after writing it" }
     }
 
     private fun <R : Record> SelectJoinStep<R>.joinCatalog() =

@@ -17,10 +17,12 @@ create table outbox
 (
     id           bigint generated always as identity primary key,
     user_id      bigint      not null references users (id) on delete cascade,
-    message      text        not null,
-    attempts     integer     not null default 0 check (attempts >= 0),
-    created_at   timestamptz not null default now(),
-    delivered_at timestamptz
+    message         text        not null,
+    attempts        integer     not null default 0 check (attempts >= 0),
+    next_attempt_at timestamptz not null default now(),
+    locked_until    timestamptz,
+    created_at      timestamptz not null default now(),
+    delivered_at    timestamptz
 );
 
-create index outbox_pending_idx on outbox (id) where delivered_at is null;
+create index outbox_pending_idx on outbox (next_attempt_at) where delivered_at is null;

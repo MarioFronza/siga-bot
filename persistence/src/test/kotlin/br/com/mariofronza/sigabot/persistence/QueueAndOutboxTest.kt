@@ -88,21 +88,39 @@ class QueueAndOutboxTest : FunSpec() {
             queue.countDue(now) shouldBe 1
         }
 
-        test("hands out pending pushes in order until they are delivered or give up") {
+        test("hands out pending pushes in order, once while their lease lasts") {
             val ana = student("ana")
+            val now = Instant.now()
             outbox.add(ana.id, "primeira")
             outbox.add(ana.id, "segunda")
 
-            val pending = outbox.pending(10, maxAttempts = 2)
-            pending.map(OutboxMessage::message) shouldBe listOf("primeira", "segunda")
+            outbox.claimPending(now, 10, lease, maxAttempts = 3).map(OutboxMessage::message) shouldBe listOf("primeira", "segunda")
+            outbox.claimPending(now.plusSeconds(60), 10, lease, maxAttempts = 3).shouldBeEmpty()
+            outbox.claimPending(now.plus(lease).plusSeconds(1), 10, lease, maxAttempts = 3).map(OutboxMessage::message) shouldBe listOf("primeira", "segunda")
+        }
 
-            outbox.delivered(pending[0].id)
-            outbox.failed(pending[1].id)
-            outbox.pending(10, maxAttempts = 2).map(OutboxMessage::message) shouldBe listOf("segunda")
+        test("retries a failed push only when it is due, and gives up after the last attempt") {
+            val ana = student("ana")
+            val now = Instant.now()
+            outbox.add(ana.id, "oi")
+            val push = outbox.claimPending(now, 10, lease, maxAttempts = 2).single()
 
-            outbox.failed(pending[1].id)
-            outbox.pending(10, maxAttempts = 2).shouldBeEmpty()
+            outbox.failed(push.id, retryAt = now.plusSeconds(30))
+            outbox.claimPending(now.plusSeconds(29), 10, lease, maxAttempts = 2).shouldBeEmpty()
+            outbox.claimPending(now.plusSeconds(30), 10, lease, maxAttempts = 2).single().attempts shouldBe 1
+
+            outbox.failed(push.id, retryAt = now.plusSeconds(60))
+            outbox.claimPending(now.plusSeconds(3600), 10, lease, maxAttempts = 2).shouldBeEmpty()
             outbox.countPending(maxAttempts = 2) shouldBe 0
+        }
+
+        test("stops handing out a delivered push") {
+            val ana = student("ana")
+            val now = Instant.now()
+            outbox.add(ana.id, "oi")
+            outbox.delivered(outbox.claimPending(now, 10, lease, maxAttempts = 3).single().id)
+
+            outbox.claimPending(now.plus(lease).plusSeconds(1), 10, lease, maxAttempts = 3).shouldBeEmpty()
         }
     }
 }

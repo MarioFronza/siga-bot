@@ -57,7 +57,7 @@ class UseCaseConfiguration {
         RunDueSyncs(queue, users, syncStudentGrades, observer, clock)
 
     @Bean
-    fun deliverOutbox(outbox: Outbox, pushSender: PushSender) = DeliverOutbox(outbox, pushSender)
+    fun deliverOutbox(outbox: Outbox, pushSender: PushSender, clock: Clock) = DeliverOutbox(outbox, pushSender, clock)
 
     @Bean
     fun listEnrolledPeriods(enrollments: EnrollmentRepository) = ListEnrolledPeriods(enrollments)

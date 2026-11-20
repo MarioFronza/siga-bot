@@ -91,7 +91,7 @@ Every student has a row in `sync_jobs` with the time of their next sync. Every 3
 - A failed sync retries after 5 minutes, doubling up to 6 hours, and keeps the error in `last_error`.
 - A new student is synced within a minute of signing up.
 
-Pushes go through an outbox. New-grade and admin messages are written in the same transaction as the data they describe, and a poller delivers them every 10 seconds. It retries a failed push up to 10 times, so a OneSignal outage no longer loses pushes or sends them for data that was rolled back.
+Pushes go through an outbox. New-grade and admin messages are written in the same transaction as the data they describe. Every 10 seconds each instance claims up to 50 pending pushes with `FOR UPDATE SKIP LOCKED` and a 5-minute lease, so two instances never send the same push. A failed push retries after 30 seconds, doubling up to an hour, for up to 10 attempts (about 4.5 hours). A OneSignal outage no longer loses pushes, and nothing is sent for data that was rolled back. Delivery is at least once: a crash between OneSignal accepting a push and marking it delivered sends it again.
 
 Prometheus metrics: `siga_sync_duration_seconds`, `siga_sync_failures_total{reason}`, `siga_sync_queue_due` and `siga_outbox_pending`.
 

@@ -54,7 +54,7 @@ Run the tests:
 
 ## Release
 
-Every pull request runs the Gradle build and tests, builds the Docker image and scans it with Trivy, failing on fixable `HIGH` or `CRITICAL` vulnerabilities. It also checks that the title follows [Conventional Commits](https://www.conventionalcommits.org), because the squash commit title drives the release. All of these checks must pass before merging into `main`.
+Every pull request runs the Gradle build and tests, builds the Docker image, scans it with Trivy (failing on fixable `HIGH` or `CRITICAL` vulnerabilities), and starts it against Postgres 18, failing unless the container reports `healthy`. It also checks that the title follows [Conventional Commits](https://www.conventionalcommits.org), because the squash commit title drives the release. All of these checks must pass before merging into `main`.
 
 After the same checks pass on `main`, every push publishes `mariofronza/siga-bot:sha-<short>` to Docker Hub.
 

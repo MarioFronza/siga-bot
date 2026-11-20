@@ -6,11 +6,11 @@ import retrofit2.converter.jackson.JacksonConverterFactory
 
 class Connector {
 
-    fun createConnection(): OneSignalConnector {
+    fun createConnection(baseUrl: String): OneSignalConnector {
         val client = OkHttpClient.Builder()
 
         return Retrofit.Builder()
-            .baseUrl("https://onesignal.com/api/v1/notifications/")
+            .baseUrl(baseUrl)
             .addConverterFactory(JacksonConverterFactory.create())
             .client(client.build())
             .build()

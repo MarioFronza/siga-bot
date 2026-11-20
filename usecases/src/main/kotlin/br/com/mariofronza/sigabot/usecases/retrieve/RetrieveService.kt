@@ -53,7 +53,6 @@ class RetrieveService(
 
         logger.debug("Retrieving SIGA results for user {}", user.externalId)
 
-        // The scraper only speaks UDESC's SIGA so far.
         val account = user.academicAccounts.first { it.institution.code == Institution.UDESC }
         val institution = account.institution
 

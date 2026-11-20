@@ -26,7 +26,6 @@ class BackgroundRetrieveService(
         logger.info("Retrieve finished, {} of {} students failed", failures, users.size)
     }
 
-    // One student's failure (wrong SIGA password, SIGA down, layout change) must not skip the others.
     private fun retrieve(user: User): Boolean = try {
         logger.debug("Retrieving user {}", user.externalId)
         retrieveService.retrieveForUser(

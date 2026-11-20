@@ -28,8 +28,6 @@ class CryptographyService(
     fun decrypt(str: String): String =
         if (str.startsWith(VERSION_PREFIX)) decryptGcm(str.removePrefix(VERSION_PREFIX)) else decryptLegacy(str)
 
-    // Keyed and deterministic, so equal values can be found and kept unique without decrypting.
-    // The HMAC key is derived from the AES key instead of reusing it directly.
     fun digest(str: String): ByteArray =
         hmac(hmac(secretKey().encoded, DIGEST_KEY_LABEL.toByteArray()), str.toByteArray(Charsets.UTF_8))
 

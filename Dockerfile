@@ -7,5 +7,5 @@ ADD application/build/distributions/application.tar /opt/
 USER app
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
-  CMD curl -fs http://localhost:${SERVER_PORT:-8080}/health || exit 1
+  CMD curl -fs http://localhost:${SERVER_PORT:-8080}/actuator/health/readiness || exit 1
 CMD ["/opt/application/bin/application"]

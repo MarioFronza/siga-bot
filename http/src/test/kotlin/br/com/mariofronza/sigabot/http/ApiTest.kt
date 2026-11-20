@@ -120,10 +120,6 @@ class ApiTest : FunSpec() {
     init {
         extension(SpringExtension())
 
-        test("keeps the health check outside the versioned api") {
-            mockMvc.get("/health").andExpect { status { isOk() } }
-        }
-
         test("signs a student up and points at the profile") {
             every { registerStudent(any()) } returns User(id = UserId(externalId), isActive = true, email = Email.of("ana@test.com"), passwordHash = "hash", roles = setOf(Role.STUDENT), academicAccounts = emptyList())
 

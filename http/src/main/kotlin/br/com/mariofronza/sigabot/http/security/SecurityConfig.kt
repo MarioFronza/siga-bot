@@ -40,7 +40,7 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 it.requestMatchers(POST, "/api/*/users", "/api/*/sessions", "/api/*/sessions/refresh").permitAll()
-                    .requestMatchers("/health", "/error", "/api/*/openapi.json").permitAll()
+                    .requestMatchers("/actuator/health/**", "/actuator/prometheus", "/error", "/api/*/openapi.json").permitAll()
                     .requestMatchers("/api/*/me/terms/**", "/api/*/me/syncs").hasAuthority("STUDENT")
                     .requestMatchers(POST, "/api/*/notifications", "/api/*/users/*/notifications").hasAuthority("ADMIN")
                     .anyRequest().authenticated()

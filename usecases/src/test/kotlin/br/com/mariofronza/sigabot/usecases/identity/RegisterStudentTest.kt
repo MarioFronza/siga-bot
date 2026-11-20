@@ -1,5 +1,11 @@
 package br.com.mariofronza.sigabot.usecases.identity
 
+import java.time.ZoneOffset
+import java.time.Instant
+import java.time.Clock
+import io.mockk.verify
+import br.com.mariofronza.sigabot.usecases.shared.TransactionRunner
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
 import br.com.mariofronza.sigabot.entity.institution.Institution
 import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
@@ -21,8 +27,13 @@ class RegisterStudentTest : FunSpec({
     val users: UserRepository = mockk()
     val institutions: InstitutionRepository = mockk()
     val secretCipher: SecretCipher = mockk()
+    val queue: SyncQueue = mockk(relaxed = true)
+    val now = Instant.parse("2026-11-20T12:00:00Z")
+    val transaction = object : TransactionRunner {
+        override fun <T> inTransaction(block: () -> T): T = block()
+    }
     val saved = slot<User>()
-    val registerStudent = RegisterStudent(users, institutions, { "hashed-$it" }, secretCipher)
+    val registerStudent = RegisterStudent(users, institutions, { "hashed-$it" }, secretCipher, queue, transaction, Clock.fixed(now, ZoneOffset.UTC))
 
     fun register(cpf: String = "00000000000") =
         registerStudent(RegisterStudent.Command(email = "Student@Test.com", password = "secret", cpf = cpf, sigaPassword = "siga"))
@@ -44,6 +55,12 @@ class RegisterStudentTest : FunSpec({
         student.email.value shouldBe "student@test.com"
         student.passwordHash shouldBe "hashed-secret"
         student.academicAccounts.single().passwordCiphertext shouldBe "encrypted"
+    }
+
+    test("queues the first sync of a new student right away") {
+        val student = register()
+
+        verify { queue.enqueue(student.id, now) }
     }
 
     test("rejects an email that is already registered") {

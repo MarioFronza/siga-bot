@@ -43,7 +43,7 @@ subprojects {
         "runtimeOnly"("org.postgresql:postgresql")
 
         "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
-        "testImplementation"("io.kotest:kotest-runner-junit5:6.2.6")
+        "testImplementation"("io.kotest:kotest-runner-junit5:6.2.7")
         "testImplementation"("io.mockk:mockk:1.14.12")
         "testImplementation"("org.springframework:spring-test")
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")

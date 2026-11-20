@@ -4,7 +4,7 @@ A small bot that logs into [SIGA](https://siga.udesc.br) (UDESC's academic syste
 
 ## Technologies
 
-- Kotlin 2.4, Java 21
+- Kotlin 2.4, Java 25
 - Spring Boot 4 (Web MVC, Security, Data JPA)
 - PostgreSQL
 - Retrofit + OkHttp and Jsoup for scraping SIGA
@@ -37,7 +37,7 @@ docker compose up --build
 
 The API listens on `http://localhost:8080`.
 
-Without Docker (needs Java 21 and a running Postgres):
+Without Docker (needs Java 25 and a running Postgres):
 
 ```bash
 export $(grep -v '^#' .env | xargs)

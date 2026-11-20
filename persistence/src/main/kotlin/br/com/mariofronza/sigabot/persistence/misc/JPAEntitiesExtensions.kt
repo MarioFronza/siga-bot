@@ -1,27 +1,27 @@
 package br.com.mariofronza.sigabot.persistence.misc
 
 import br.com.mariofronza.sigabot.entity.course.Course
-import br.com.mariofronza.sigabot.entity.group.Group
-import br.com.mariofronza.sigabot.entity.group.Period
+import br.com.mariofronza.sigabot.entity.section.ClassSection
+import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.notification.Notification
-import br.com.mariofronza.sigabot.entity.semester.SemesterResult
+import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.subject.Subject
-import br.com.mariofronza.sigabot.entity.subject.SubjectEnrollment
+import br.com.mariofronza.sigabot.entity.subject.SubjectOffering
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.SigaCredential
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.persistence.course.entity.CourseJPA
-import br.com.mariofronza.sigabot.persistence.group.entity.GroupJPA
-import br.com.mariofronza.sigabot.persistence.group.entity.PeriodJPA
+import br.com.mariofronza.sigabot.persistence.section.entity.ClassSectionJPA
+import br.com.mariofronza.sigabot.persistence.term.entity.AcademicTermJPA
 import br.com.mariofronza.sigabot.persistence.notification.entity.NotificationJPA
-import br.com.mariofronza.sigabot.persistence.semester.entity.SemesterResultJPA
-import br.com.mariofronza.sigabot.persistence.subject.entity.SubjectEnrollmentJPA
+import br.com.mariofronza.sigabot.persistence.enrollment.entity.EnrollmentJPA
+import br.com.mariofronza.sigabot.persistence.subject.entity.SubjectOfferingJPA
 import br.com.mariofronza.sigabot.persistence.subject.entity.SubjectJPA
 import br.com.mariofronza.sigabot.persistence.user.entity.RoleJPA
 import br.com.mariofronza.sigabot.persistence.user.entity.SigaCredentialJPA
 import br.com.mariofronza.sigabot.persistence.user.entity.UserJPA
 
-fun SemesterResult.toJPA() = SemesterResultJPA(
+fun Enrollment.toJPA() = EnrollmentJPA(
     id = this.id,
     finalGrade = this.finalGrade,
     courseLoad = this.courseLoad,
@@ -55,7 +55,7 @@ fun SigaCredential.toJPA() = SigaCredentialJPA(
     passwordHash = this.passwordHash
 )
 
-fun SubjectEnrollment.toJPA() = SubjectEnrollmentJPA(
+fun SubjectOffering.toJPA() = SubjectOfferingJPA(
     id = this.id,
     subject = this.subject.toJPA(),
     enrolledGroup = this.enrolledGroup.toJPA()
@@ -66,7 +66,7 @@ fun Subject.toJPA() = SubjectJPA(
     name = this.name
 )
 
-fun Group.toJPA() = GroupJPA(
+fun ClassSection.toJPA() = ClassSectionJPA(
     id = this.id,
     name = this.name,
     course = this.course.toJPA(),
@@ -78,7 +78,7 @@ fun Course.toJPA() = CourseJPA(
     name = this.name
 )
 
-fun Period.toJPA() = PeriodJPA(
+fun AcademicTerm.toJPA() = AcademicTermJPA(
     id = this.id,
     year = this.year,
     term = this.term

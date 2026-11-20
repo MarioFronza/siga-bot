@@ -1,7 +1,7 @@
 package br.com.mariofronza.sigabot.persistence.course.entity
 
 import br.com.mariofronza.sigabot.entity.course.Course
-import br.com.mariofronza.sigabot.persistence.group.entity.GroupJPA
+import br.com.mariofronza.sigabot.persistence.section.entity.ClassSectionJPA
 import jakarta.persistence.*
 
 @Entity
@@ -13,7 +13,7 @@ data class CourseJPA(
     @Column(name = "name")
     val name: String,
     @OneToMany(mappedBy = "course")
-    val groups: List<GroupJPA> = emptyList()
+    val groups: List<ClassSectionJPA> = emptyList()
 ) {
     fun toEntity() = Course(
         id = id,

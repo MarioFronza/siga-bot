@@ -1,6 +1,6 @@
 package br.com.mariofronza.sigabot.entity.user
 
-import br.com.mariofronza.sigabot.entity.group.Group
+import br.com.mariofronza.sigabot.entity.section.ClassSection
 
 data class User(
     val id: Long? = null,
@@ -10,7 +10,7 @@ data class User(
     val passwordHash: String,
     val roles: List<Role>,
     val sigaCredential: SigaCredential,
-    val groups: MutableList<Group> = emptyList<Group>().toMutableList()
+    val groups: MutableList<ClassSection> = emptyList<ClassSection>().toMutableList()
 ) {
     val username: String
         get() = if (fullName.isNotEmpty()) fullName.split(" ").first() else ""

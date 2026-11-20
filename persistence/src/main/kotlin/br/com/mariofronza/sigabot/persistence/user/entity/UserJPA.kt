@@ -1,7 +1,7 @@
 package br.com.mariofronza.sigabot.persistence.user.entity
 
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.persistence.group.entity.GroupJPA
+import br.com.mariofronza.sigabot.persistence.section.entity.ClassSectionJPA
 import jakarta.persistence.*
 
 @Entity
@@ -26,7 +26,7 @@ data class UserJPA(
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     val sigaCredential: SigaCredentialJPA,
     @ManyToMany(fetch = FetchType.EAGER)
-    val groups: Set<GroupJPA>
+    val groups: Set<ClassSectionJPA>
 ) {
     fun toEntity() = User(
         id = id,

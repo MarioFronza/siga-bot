@@ -1,7 +1,7 @@
 package br.com.mariofronza.sigabot.usecases.retrieve
 
-import br.com.mariofronza.sigabot.entity.group.Group
-import br.com.mariofronza.sigabot.entity.group.Period
+import br.com.mariofronza.sigabot.entity.section.ClassSection
+import br.com.mariofronza.sigabot.entity.term.AcademicTerm
 import br.com.mariofronza.sigabot.entity.user.SigaCredential
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.siga.course.CourseService
@@ -9,13 +9,13 @@ import br.com.mariofronza.sigabot.usecases.extraction.semester.SemesterResultsEx
 import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SigaCredentialInput
 import br.com.mariofronza.sigabot.usecases.misc.cryptograpy.CryptographyService
 import br.com.mariofronza.sigabot.usecases.misc.filter.UserDetailsImpl
-import br.com.mariofronza.sigabot.usecases.siga.group.GroupService
-import br.com.mariofronza.sigabot.usecases.siga.group.PeriodService
+import br.com.mariofronza.sigabot.usecases.siga.section.ClassSectionService
+import br.com.mariofronza.sigabot.usecases.siga.term.AcademicTermService
 import br.com.mariofronza.sigabot.usecases.notification.PushNotification
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveInput
 import br.com.mariofronza.sigabot.usecases.retrieve.dto.RetrieveOutput
-import br.com.mariofronza.sigabot.usecases.siga.semester.SemesterResultsService
-import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectEnrollmentService
+import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
+import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectOfferingService
 import br.com.mariofronza.sigabot.usecases.siga.subject.SubjectService
 import br.com.mariofronza.sigabot.usecases.user.gateway.UserInteractor
 import org.springframework.security.core.context.SecurityContextHolder
@@ -25,11 +25,11 @@ import org.springframework.stereotype.Service
 class RetrieveService(
     private val userInteractor: UserInteractor,
     private val courseService: CourseService,
-    private val periodService: PeriodService,
-    private val groupService: GroupService,
+    private val academicTermService: AcademicTermService,
+    private val classSectionService: ClassSectionService,
     private val subjectService: SubjectService,
-    private val subjectEnrollmentService: SubjectEnrollmentService,
-    private val semesterResultsService: SemesterResultsService,
+    private val subjectOfferingService: SubjectOfferingService,
+    private val enrollmentService: EnrollmentService,
     private val semesterResultsExtraction: SemesterResultsExtraction,
     private val socketNotification: PushNotification,
     private val cryptographyService: CryptographyService
@@ -61,31 +61,31 @@ class RetrieveService(
 
         val course = courseService.createCourse(semesterResultsList.course)
         user = userInteractor.save(user.copy(fullName = semesterResultsList.studentName))
-        val periods = mutableListOf<Period>()
+        val periods = mutableListOf<AcademicTerm>()
 
         semesterResultsList.semesterResultsPeriod.map { semesterResults ->
             val pairPeriod = getPairPeriod(semesterResults.period)
-            val period = periodService.createPeriod(pairPeriod.first, pairPeriod.second)
+            val period = academicTermService.createPeriod(pairPeriod.first, pairPeriod.second)
             periods.add(period)
 
             semesterResults.semesterResults.map {
-                val group = groupService.createGroup(it.groupName, course, period)
+                val group = classSectionService.createGroup(it.groupName, course, period)
                 addGroupToUser(user, group)
 
                 val subject = subjectService.createSubject(it.subjectName)
-                val subjectEnrollment = subjectEnrollmentService.createSubjectEnrollment(
+                val subjectEnrollment = subjectOfferingService.createSubjectEnrollment(
                     subject = subject,
                     group = group
                 )
 
-                if (semesterResultsService.isThereAnyGradeUpdate(subjectEnrollment, user, it)) {
+                if (enrollmentService.isThereAnyGradeUpdate(subjectEnrollment, user, it)) {
                     println("New grade update for ${user.username}")
                     notifyWatchers(user, subject.name)
                 } else {
                     println("User ${user.username} does not have any gradle update")
                 }
 
-                semesterResultsService.createSemesterResult(subjectEnrollment, user, it)
+                enrollmentService.createSemesterResult(subjectEnrollment, user, it)
             }
         }
 
@@ -102,7 +102,7 @@ class RetrieveService(
     }
 
     // TODO remove that method to a better place
-    private fun addGroupToUser(user: User, group: Group) {
+    private fun addGroupToUser(user: User, group: ClassSection) {
         if (user.groups.find { it.id == group.id } == null) {
             user.groups.add(group)
             userInteractor.save(user)

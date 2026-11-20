@@ -12,7 +12,7 @@ data class SubjectJPA(
     @Column(name = "name")
     val name: String,
     @OneToMany(mappedBy = "subject")
-    val enrolledGroups: List<SubjectEnrollmentJPA> = emptyList(),
+    val enrolledGroups: List<SubjectOfferingJPA> = emptyList(),
 ) {
     fun toEntity() = Subject(
         id = id,

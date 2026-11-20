@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository
 @Repository
 interface GroupRepository : JpaRepository<GroupJPA, Long> {
 
-    fun findByName(name: String): GroupJPA?
+    fun findByNameAndCourseIdAndPeriodId(name: String, courseId: Long, periodId: Long): GroupJPA?
 }

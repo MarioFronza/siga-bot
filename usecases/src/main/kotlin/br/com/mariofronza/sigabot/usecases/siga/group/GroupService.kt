@@ -12,7 +12,7 @@ class GroupService(
 ) {
 
     fun createGroup(groupName: String, course: Course, period: Period): Group {
-        var group = groupInteractor.findByName(groupName)
+        var group = groupInteractor.find(groupName, course, period)
 
         if (group == null) {
             group = groupInteractor.save(

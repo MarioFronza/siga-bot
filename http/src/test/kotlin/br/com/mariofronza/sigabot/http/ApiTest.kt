@@ -1,5 +1,17 @@
 package br.com.mariofronza.sigabot.http
 
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
+import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
+import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
+import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
+import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
+import br.com.mariofronza.sigabot.usecases.notification.BroadcastNotification
+import br.com.mariofronza.sigabot.usecases.notification.ListNotifications
+import br.com.mariofronza.sigabot.usecases.notification.NotifyStudent
+import br.com.mariofronza.sigabot.usecases.shared.Page
+import br.com.mariofronza.sigabot.usecases.shared.PageRequest
 import br.com.mariofronza.sigabot.entity.user.UserId
 import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.enrollment.Attendance
@@ -14,15 +26,8 @@ import br.com.mariofronza.sigabot.http.security.AuthService
 import br.com.mariofronza.sigabot.http.security.SecurityConfig
 import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.http.security.JWTUtil
-import br.com.mariofronza.sigabot.usecases.notification.NotificationService
-import br.com.mariofronza.sigabot.usecases.notification.dto.NotificationOutput
-import br.com.mariofronza.sigabot.usecases.retrieve.RetrieveService
-import br.com.mariofronza.sigabot.usecases.siga.enrollment.EnrollmentService
-import br.com.mariofronza.sigabot.usecases.siga.term.dto.AcademicTermOutput
 import br.com.mariofronza.sigabot.entity.user.EmailAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.UserNotFoundException
-import br.com.mariofronza.sigabot.usecases.user.UserService
-import br.com.mariofronza.sigabot.usecases.user.dto.UserOutput
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -34,8 +39,6 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
-import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.PageRequest
 import org.springframework.http.MediaType.APPLICATION_JSON
 import org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON
 import org.springframework.security.core.userdetails.UserDetailsService
@@ -57,18 +60,24 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var mockMvc: MockMvc
     @Autowired lateinit var jwtUtil: JWTUtil
     @Autowired lateinit var userDetailsService: UserDetailsService
-    @Autowired lateinit var userService: UserService
-    @Autowired lateinit var retrieveService: RetrieveService
-    @Autowired lateinit var enrollmentService: EnrollmentService
-    @Autowired lateinit var notificationService: NotificationService
+    @Autowired lateinit var registerStudent: RegisterStudent
+    @Autowired lateinit var syncStudentGrades: SyncStudentGrades
+    @Autowired lateinit var listEnrolledPeriods: ListEnrolledPeriods
+    @Autowired lateinit var listPeriodEnrollments: ListPeriodEnrollments
+    @Autowired lateinit var listNotifications: ListNotifications
+    @Autowired lateinit var broadcastNotification: BroadcastNotification
+    @Autowired lateinit var notifyStudent: NotifyStudent
 
     @TestConfiguration
     class Mocks {
         @Bean fun userDetailsService(): UserDetailsService = mockk()
-        @Bean fun userService(): UserService = mockk()
-        @Bean fun retrieveService(): RetrieveService = mockk()
-        @Bean fun enrollmentService(): EnrollmentService = mockk()
-        @Bean fun notificationService(): NotificationService = mockk(relaxed = true)
+        @Bean fun registerStudent(): RegisterStudent = mockk()
+        @Bean fun syncStudentGrades(): SyncStudentGrades = mockk()
+        @Bean fun listEnrolledPeriods(): ListEnrolledPeriods = mockk()
+        @Bean fun listPeriodEnrollments(): ListPeriodEnrollments = mockk()
+        @Bean fun listNotifications(): ListNotifications = mockk()
+        @Bean fun broadcastNotification(): BroadcastNotification = mockk(relaxed = true)
+        @Bean fun notifyStudent(): NotifyStudent = mockk()
     }
 
     private val externalId = UUID.fromString("01a1f973-13ad-7a5c-80df-bf421ada5df1")
@@ -116,7 +125,7 @@ class ApiTest : FunSpec() {
         }
 
         test("signs a student up and points at the profile") {
-            every { userService.createUser(any()) } returns UserOutput(externalId, "ana@test.com", "")
+            every { registerStudent(any()) } returns User(id = UserId(externalId), isActive = true, email = Email.of("ana@test.com"), passwordHash = "hash", roles = setOf(Role.STUDENT), academicAccounts = emptyList())
 
             mockMvc.post("/api/v1/users") {
                 json("""{"email":"ana@test.com","password":"app-password","sigaCredential":{"cpf":"000","password":"siga"}}""")
@@ -137,7 +146,7 @@ class ApiTest : FunSpec() {
         }
 
         test("answers 409 when the email is already registered") {
-            every { userService.createUser(any()) } throws EmailAlreadyRegisteredException()
+            every { registerStudent(any()) } throws EmailAlreadyRegisteredException()
 
             mockMvc.post("/api/v1/users") {
                 json("""{"email":"ana@test.com","password":"app-password","sigaCredential":{"cpf":"000","password":"siga"}}""")
@@ -210,7 +219,7 @@ class ApiTest : FunSpec() {
 
         test("lists the terms the student is enrolled in") {
             val user = signedIn(Role.STUDENT)
-            every { enrollmentService.findPeriods(user.id) } returns listOf(AcademicPeriod(2026, 2), AcademicPeriod(2026, 1))
+            every { listEnrolledPeriods(user.id) } returns listOf(AcademicPeriod(2026, 2), AcademicPeriod(2026, 1))
 
             mockMvc.get("/api/v1/me/terms") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -222,7 +231,7 @@ class ApiTest : FunSpec() {
 
         test("lists the enrollments of a term") {
             val user = signedIn(Role.STUDENT)
-            every { enrollmentService.findAll(user.id, AcademicPeriod(2026, 1)) } returns listOf(enrollment(user))
+            every { listPeriodEnrollments(user.id, AcademicPeriod(2026, 1)) } returns listOf(enrollment(user))
 
             mockMvc.get("/api/v1/me/terms/2026/1/enrollments") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -238,7 +247,7 @@ class ApiTest : FunSpec() {
 
         test("syncs one term from SIGA") {
             val user = signedIn(Role.STUDENT)
-            every { retrieveService.retrieveForUser(any(), user) } returns listOf(AcademicTermOutput(2026, 1))
+            every { syncStudentGrades(user, SyncScope.Period(AcademicPeriod(2026, 1))) } returns listOf(AcademicPeriod(2026, 1))
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"year":2026,"term":1}""") }
                 .andExpect {
@@ -249,12 +258,23 @@ class ApiTest : FunSpec() {
 
         test("syncs every term from SIGA") {
             val user = signedIn(Role.STUDENT)
-            every { retrieveService.fullRetrieve(user) } returns listOf(AcademicTermOutput(2026, 1))
+            every { syncStudentGrades(user, SyncScope.Everything) } returns listOf(AcademicPeriod(2026, 1))
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"scope":"full"}""") }
                 .andExpect { status { isOk() } }
 
-            verify { retrieveService.fullRetrieve(user) }
+            verify { syncStudentGrades(user, SyncScope.Everything) }
+        }
+
+        test("answers 503 as a problem when SIGA is unavailable during a sync") {
+            val user = signedIn(Role.STUDENT)
+            every { syncStudentGrades(user, SyncScope.Period(AcademicPeriod(2026, 1))) } throws SigaUnavailableException("SIGA did not answer")
+
+            mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"year":2026,"term":1}""") }
+                .andExpect {
+                    status { isServiceUnavailable() }
+                    content { contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON) }
+                }
         }
 
         test("asks for the term when syncing one term") {
@@ -270,8 +290,8 @@ class ApiTest : FunSpec() {
         test("pages the notifications of the signed in user") {
             val user = signedIn(Role.STUDENT)
             val createdAt = Instant.parse("2026-11-20T12:00:00Z")
-            every { notificationService.listNotifications(user.id, PageRequest.of(1, 5)) } returns
-                PageImpl(listOf(NotificationOutput(7, "Nova nota", createdAt)), PageRequest.of(1, 5), 6)
+            every { listNotifications(user.id, PageRequest(1, 5)) } returns
+                Page(listOf(Notification(7, user.id, "Nova nota", createdAt)), PageRequest(1, 5), 6)
 
             mockMvc.get("/api/v1/me/notifications?page=1&size=5") { bearer(user) }.andExpect {
                 status { isOk() }
@@ -295,13 +315,13 @@ class ApiTest : FunSpec() {
             mockMvc.post("/api/v1/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect { status { isAccepted() } }
 
-            verify { notificationService.createNotificationToAll("Oi") }
+            verify { broadcastNotification("Oi") }
         }
 
         test("lets admins notify one user") {
             val user = signedIn(Role.ADMIN)
-            every { notificationService.createNotificationToUser(UserId(externalId), "Oi") } returns
-                NotificationOutput(7, "Oi", Instant.parse("2026-11-20T12:00:00Z"))
+            every { notifyStudent(UserId(externalId), "Oi") } returns
+                Notification(7, UserId(externalId), "Oi", Instant.parse("2026-11-20T12:00:00Z"))
 
             mockMvc.post("/api/v1/users/$externalId/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect {
@@ -313,7 +333,7 @@ class ApiTest : FunSpec() {
         test("answers 404 when notifying an unknown user") {
             val user = signedIn(Role.ADMIN)
             val unknown = UserId.generate()
-            every { notificationService.createNotificationToUser(unknown, "Oi") } throws UserNotFoundException(unknown)
+            every { notifyStudent(unknown, "Oi") } throws UserNotFoundException(unknown)
 
             mockMvc.post("/api/v1/users/$unknown/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect {

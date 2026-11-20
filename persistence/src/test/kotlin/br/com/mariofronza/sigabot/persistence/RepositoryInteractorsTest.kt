@@ -11,13 +11,12 @@ import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
-import br.com.mariofronza.sigabot.persistence.enrollment.gateway.EnrollmentRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.institution.gateway.InstitutionRepositoryInteractor
+import br.com.mariofronza.sigabot.persistence.enrollment.JooqEnrollmentRepository
+import br.com.mariofronza.sigabot.persistence.institution.JooqInstitutionRepository
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.ENROLLMENTS
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.INSTITUTIONS
-import br.com.mariofronza.sigabot.persistence.notification.gateway.NotificationRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.user.gateway.AcademicAccountRepositoryInteractor
-import br.com.mariofronza.sigabot.persistence.user.gateway.UserRepositoryInteractor
+import br.com.mariofronza.sigabot.persistence.notification.JooqNotificationRepository
+import br.com.mariofronza.sigabot.persistence.user.JooqUserRepository
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -28,25 +27,22 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 import org.springframework.boot.jooq.test.autoconfigure.JooqTest
 import org.springframework.context.annotation.Import
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
+import br.com.mariofronza.sigabot.usecases.shared.PageRequest
 
 @JooqTest
 @ImportAutoConfiguration(FlywayAutoConfiguration::class)
 @Import(
-    UserRepositoryInteractor::class,
-    AcademicAccountRepositoryInteractor::class,
-    InstitutionRepositoryInteractor::class,
-    NotificationRepositoryInteractor::class,
-    EnrollmentRepositoryInteractor::class,
+    JooqUserRepository::class,
+    JooqInstitutionRepository::class,
+    JooqNotificationRepository::class,
+    JooqEnrollmentRepository::class,
 )
 class RepositoryInteractorsTest : FunSpec() {
 
-    @Autowired lateinit var users: UserRepositoryInteractor
-    @Autowired lateinit var accounts: AcademicAccountRepositoryInteractor
-    @Autowired lateinit var institutions: InstitutionRepositoryInteractor
-    @Autowired lateinit var notifications: NotificationRepositoryInteractor
-    @Autowired lateinit var enrollments: EnrollmentRepositoryInteractor
+    @Autowired lateinit var users: JooqUserRepository
+    @Autowired lateinit var institutions: JooqInstitutionRepository
+    @Autowired lateinit var notifications: JooqNotificationRepository
+    @Autowired lateinit var enrollments: JooqEnrollmentRepository
     @Autowired lateinit var dsl: DSLContext
 
     private val udesc = InstitutionCode.UDESC
@@ -124,7 +120,7 @@ class RepositoryInteractorsTest : FunSpec() {
         test("finds an academic account by its login digest within the institution") {
             newUser(digest = byteArrayOf(9, 9, 9))
 
-            accounts.existsByLoginDigest(udesc, byteArrayOf(9, 9, 9)) shouldBe true
+            users.existsByLoginDigest(udesc, byteArrayOf(9, 9, 9)) shouldBe true
         }
 
         test("accepts the same login in another institution") {
@@ -132,7 +128,7 @@ class RepositoryInteractorsTest : FunSpec() {
             newUser(digest = byteArrayOf(9, 9, 9))
             newUser(digest = byteArrayOf(9, 9, 9), email = "other@test.com", institution = ufpr)
 
-            accounts.existsByLoginDigest(ufpr, byteArrayOf(9, 9, 9)) shouldBe true
+            users.existsByLoginDigest(ufpr, byteArrayOf(9, 9, 9)) shouldBe true
         }
 
         test("keeps subjects with the same name apart per institution") {
@@ -159,17 +155,17 @@ class RepositoryInteractorsTest : FunSpec() {
             val user = newUser()
             notifications.save(Notification(recipient = user.id, message = "Nova nota em Banco de Dados"))
 
-            notifications.findByRecipient(user.id, PageRequest.of(0, 20)).content.single().message shouldBe "Nova nota em Banco de Dados"
+            notifications.findByRecipient(user.id, PageRequest(0, 20)).items.single().message shouldBe "Nova nota em Banco de Dados"
         }
 
-        test("pages a user's notifications newest first, ignoring the requested sort") {
+        test("pages a user's notifications newest first") {
             val user = newUser()
             listOf("primeira", "segunda", "terceira").forEach { notifications.save(Notification(recipient = user.id, message = it)) }
 
-            val page = notifications.findByRecipient(user.id, PageRequest.of(0, 2, Sort.by("unknown")))
+            val page = notifications.findByRecipient(user.id, PageRequest(0, 2))
 
-            page.content.map { it.message } shouldBe listOf("terceira", "segunda")
-            page.totalElements shouldBe 3
+            page.items.map { it.message } shouldBe listOf("terceira", "segunda")
+            page.totalItems shouldBe 3
         }
 
         test("lists the academic periods a user is enrolled in, newest first") {

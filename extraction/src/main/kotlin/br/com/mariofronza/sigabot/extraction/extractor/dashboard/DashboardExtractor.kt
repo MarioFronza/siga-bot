@@ -8,7 +8,7 @@ import br.com.mariofronza.sigabot.extraction.apisteps.login.LoginStep
 import br.com.mariofronza.sigabot.extraction.connector.RetrofitSigaConnector
 import br.com.mariofronza.sigabot.extraction.extractor.ExtractorContext
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepError
-import br.com.mariofronza.sigabot.usecases.extraction.semester.dto.SemesterResultsExtractionInput
+import br.com.mariofronza.sigabot.extraction.dto.SemesterResultsExtractionInput
 import org.springframework.stereotype.Component
 
 @Component

@@ -4,7 +4,7 @@ import br.com.mariofronza.sigabot.extraction.parser.dashboard.DashboardParser
 import br.com.mariofronza.sigabot.extraction.parser.periods.PeriodsParser
 import br.com.mariofronza.sigabot.extraction.parser.prelogin.CookieParser
 import br.com.mariofronza.sigabot.extraction.parser.semesterresults.SemesterResultsParser
-import br.com.mariofronza.sigabot.usecases.extraction.SigaLayoutChangedException
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldContain

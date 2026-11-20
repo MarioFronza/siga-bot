@@ -1,0 +1,68 @@
+package br.com.mariofronza.sigabot.usecases.academic
+
+import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
+import br.com.mariofronza.sigabot.entity.enrollment.GradePosted
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.entity.user.AcademicAccount
+import br.com.mariofronza.sigabot.entity.user.User
+import br.com.mariofronza.sigabot.usecases.academic.port.AcademicRecord
+import br.com.mariofronza.sigabot.usecases.academic.port.AcademicSystem
+import br.com.mariofronza.sigabot.usecases.academic.port.EnrollmentRepository
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
+import br.com.mariofronza.sigabot.usecases.identity.port.SecretCipher
+import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
+import br.com.mariofronza.sigabot.usecases.notification.port.PushSender
+import br.com.mariofronza.sigabot.usecases.shared.TransactionRunner
+import org.slf4j.LoggerFactory
+
+class SyncStudentGrades(
+    private val users: UserRepository,
+    private val enrollments: EnrollmentRepository,
+    private val academicSystems: List<AcademicSystem>,
+    private val secretCipher: SecretCipher,
+    private val pushSender: PushSender,
+    private val transaction: TransactionRunner,
+) {
+
+    operator fun invoke(user: User, scope: SyncScope): List<AcademicPeriod> =
+        user.academicAccounts.flatMap { sync(user, it, scope) }.distinct()
+
+    private fun sync(user: User, account: AcademicAccount, scope: SyncScope): List<AcademicPeriod> {
+        logger.debug("Syncing user {} at {}", user.id, account.institution)
+        val record = systemFor(account).fetch(credentialsOf(account), scope)
+        val student = user.rename(record.studentName)
+
+        val news = transaction.inTransaction { store(student, record) }
+
+        news.forEach { notify(student, it) }
+        return record.periods
+    }
+
+    private fun store(student: User, record: AcademicRecord): List<GradePosted> {
+        users.save(student)
+        return record.results.flatMap { result ->
+            val recorded = Enrollment.record(student.id, result.offering, enrollments.find(student.id, result.offering), result.outcome)
+            enrollments.save(recorded.enrollment)
+            recorded.events
+        }
+    }
+
+    private fun notify(student: User, event: GradePosted) {
+        logger.info("New grade for user {} in {}", student.id, event.offering.subject)
+        pushSender.sendTo(student.id, "${student.username}, você possui uma nota nova da matéria ${event.offering.subject}")
+    }
+
+    private fun systemFor(account: AcademicAccount) =
+        checkNotNull(academicSystems.firstOrNull { it.institution == account.institution }) {
+            "No academic system for ${account.institution}"
+        }
+
+    private fun credentialsOf(account: AcademicAccount) = AcademicSystem.Credentials(
+        login = secretCipher.decrypt(account.loginCiphertext),
+        password = secretCipher.decrypt(account.passwordCiphertext),
+    )
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(SyncStudentGrades::class.java)
+    }
+}

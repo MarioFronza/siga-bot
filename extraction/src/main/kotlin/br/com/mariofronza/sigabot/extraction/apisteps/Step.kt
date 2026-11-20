@@ -1,6 +1,7 @@
 package br.com.mariofronza.sigabot.extraction.apisteps
 
-import br.com.mariofronza.sigabot.usecases.extraction.SigaLayoutChangedException
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepSuccess
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepError
 import br.com.mariofronza.sigabot.extraction.extractor.ExtractorContext
@@ -22,7 +23,7 @@ abstract class Step {
             }
             StepSuccess(body())
         } else {
-            val errorBody = errorBody() ?: throw Exception("Empty error body")
+            val errorBody = errorBody() ?: throw SigaUnavailableException("SIGA answered ${code()} without a body")
             val errorMessage = errorBody.toString()
             StepError(errorMessage)
         }

@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/MarioFronza/siga-bot/compare/v2.0.1...v3.0.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* every route except /health moved under /api/v1, the refresh token now goes in the request body, and several JSON fields were renamed. The app has to move to the new contract.
+
+### Features
+
+* serve the api under /api/v1 with resource-oriented routes ([#33](https://github.com/MarioFronza/siga-bot/issues/33)) ([d55bf18](https://github.com/MarioFronza/siga-bot/commit/d55bf18a102eb3429b1c6cb0c69821c76027f644))
+
 ## [2.0.1](https://github.com/MarioFronza/siga-bot/compare/v2.0.0...v2.0.1) (2026-11-20)
 
 

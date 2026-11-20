@@ -4,7 +4,7 @@ plugins {
 
 application {
     mainClass.set("br.com.mariofronza.sigabot.application.BootKt")
-    applicationDefaultJvmArgs = listOf("-Duser.timezone=UTC")
+    applicationDefaultJvmArgs = listOf("-Duser.timezone=UTC", "-XX:MaxRAMPercentage=75")
 }
 
 dependencies {

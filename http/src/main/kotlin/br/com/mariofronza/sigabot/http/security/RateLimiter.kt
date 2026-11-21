@@ -15,13 +15,15 @@ class RateLimiter(
 
     private val windows = ConcurrentHashMap<String, Window>()
 
-    fun tryAcquire(key: String): Boolean {
+    data class Admission(val allowed: Boolean, val retryAfter: Duration)
+
+    fun acquire(key: String): Admission {
         val now = clock.instant()
         if (windows.size > MAX_TRACKED_KEYS) windows.values.removeIf { expired(it, now) }
-        val current = windows.compute(key) { _, window ->
+        val current = checkNotNull(windows.compute(key) { _, window ->
             if (window == null || expired(window, now)) Window(now, 1) else window.copy(count = window.count + 1)
-        }
-        return checkNotNull(current) { "compute always returns a window" }.count <= limit
+        }) { "compute always returns a window" }
+        return Admission(allowed = current.count <= limit, retryAfter = Duration.between(now, current.startedAt.plus(window)))
     }
 
     private fun expired(window: Window, now: Instant) = !now.isBefore(window.startedAt.plus(this.window))

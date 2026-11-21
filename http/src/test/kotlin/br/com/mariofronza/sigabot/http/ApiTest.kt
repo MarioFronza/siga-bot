@@ -331,6 +331,7 @@ class ApiTest : FunSpec() {
                 lastSyncedAt = Instant.parse("2026-11-20T12:00:00Z"),
                 nextRunAt = Instant.parse("2026-11-20T13:00:00Z"),
                 running = false,
+                pending = true,
                 attempts = 2,
                 lastError = "SIGA did not answer",
             )
@@ -340,6 +341,7 @@ class ApiTest : FunSpec() {
                 jsonPath("$.lastSyncedAt") { value("2026-11-20T12:00:00Z") }
                 jsonPath("$.nextRunAt") { value("2026-11-20T13:00:00Z") }
                 jsonPath("$.running") { value(false) }
+                jsonPath("$.pending") { value(true) }
                 jsonPath("$.attempts") { value(2) }
                 jsonPath("$.lastError") { value("SIGA did not answer") }
             }

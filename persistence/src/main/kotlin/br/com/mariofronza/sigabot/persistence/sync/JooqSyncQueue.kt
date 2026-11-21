@@ -102,6 +102,7 @@ class JooqSyncQueue(
                     lastSyncedAt = it.lastSyncedAt?.toInstant(),
                     nextRunAt = it.notNull(SYNC_JOBS.NEXT_RUN_AT).toInstant(),
                     running = it.lockedUntil?.toInstant()?.isAfter(now) ?: false,
+                    pending = it.requestedScope != null,
                     attempts = it.notNull(SYNC_JOBS.ATTEMPTS),
                     lastError = it.lastError,
                 )

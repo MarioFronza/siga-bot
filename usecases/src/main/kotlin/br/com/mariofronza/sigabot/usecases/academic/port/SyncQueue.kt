@@ -27,6 +27,7 @@ data class SyncStatus(
     val lastSyncedAt: Instant?,
     val nextRunAt: Instant,
     val running: Boolean,
+    val pending: Boolean,
     val attempts: Int,
     val lastError: String?,
 )

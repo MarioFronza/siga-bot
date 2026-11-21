@@ -49,6 +49,6 @@ class UdescSiga(
 
     private fun resultOf(period: AcademicPeriod, course: String, result: SemesterResultOutput) = AcademicRecord.Result(
         offering = SubjectOffering(institution, period, course, result.groupName, result.subjectName, result.courseLoad),
-        outcome = SemesterOutcome(Grade(result.finalGrade), result.absencesCount, Attendance(result.attendancePercentage), result.result),
+        outcome = SemesterOutcome(result.finalGrade?.let(::Grade), result.absencesCount, result.attendancePercentage?.let(::Attendance), result.result),
     )
 }

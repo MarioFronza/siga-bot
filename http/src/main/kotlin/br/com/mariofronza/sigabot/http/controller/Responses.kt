@@ -23,9 +23,9 @@ data class EnrollmentResponse(
     val subject: String,
     val classSection: String,
     val courseLoad: Int,
-    val finalGrade: Double,
+    val finalGrade: Double?,
     val absences: Int,
-    val attendancePercentage: Double,
+    val attendancePercentage: Double?,
     val result: String,
 ) {
     companion object {
@@ -33,9 +33,9 @@ data class EnrollmentResponse(
             subject = enrollment.offering.subject,
             classSection = enrollment.offering.classSection,
             courseLoad = enrollment.offering.courseLoad,
-            finalGrade = enrollment.grade.value,
+            finalGrade = enrollment.grade?.value,
             absences = enrollment.absences,
-            attendancePercentage = enrollment.attendance.percentage,
+            attendancePercentage = enrollment.attendance?.percentage,
             result = enrollment.result,
         )
     }

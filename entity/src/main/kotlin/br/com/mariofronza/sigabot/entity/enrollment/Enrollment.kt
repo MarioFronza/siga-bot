@@ -6,9 +6,9 @@ import br.com.mariofronza.sigabot.entity.user.UserId
 data class Enrollment(
     val studentId: UserId,
     val offering: SubjectOffering,
-    val grade: Grade,
+    val grade: Grade?,
     val absences: Int,
-    val attendance: Attendance,
+    val attendance: Attendance?,
     val result: String,
 ) {
 
@@ -21,8 +21,9 @@ data class Enrollment(
     companion object {
         fun record(studentId: UserId, offering: SubjectOffering, existing: Enrollment?, outcome: SemesterOutcome): Recorded {
             val enrollment = Enrollment(studentId, offering, outcome.grade, outcome.absences, outcome.attendance, outcome.result)
-            val events = if (existing != null && existing.grade != outcome.grade) {
-                listOf(GradePosted(studentId, offering, outcome.grade))
+            val grade = outcome.grade
+            val events = if (existing != null && grade != null && existing.grade != grade) {
+                listOf(GradePosted(studentId, offering, grade))
             } else {
                 emptyList()
             }

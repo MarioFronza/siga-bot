@@ -83,9 +83,9 @@ class JooqEnrollmentRepository(
         dsl.insertInto(ENROLLMENTS)
             .set(ENROLLMENTS.USER_ID, userKey(enrollment.studentId))
             .set(ENROLLMENTS.SUBJECT_OFFERING_ID, offeringId)
-            .set(ENROLLMENTS.FINAL_GRADE, BigDecimal.valueOf(enrollment.grade.value))
+            .set(ENROLLMENTS.FINAL_GRADE, enrollment.grade?.value?.let(BigDecimal::valueOf))
             .set(ENROLLMENTS.ABSENCES, enrollment.absences)
-            .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, BigDecimal.valueOf(enrollment.attendance.percentage))
+            .set(ENROLLMENTS.ATTENDANCE_PERCENTAGE, enrollment.attendance?.percentage?.let(BigDecimal::valueOf))
             .set(ENROLLMENTS.RESULT, enrollment.result)
             .onConflict(ENROLLMENTS.USER_ID, ENROLLMENTS.SUBJECT_OFFERING_ID)
             .doUpdate()
@@ -167,9 +167,9 @@ class JooqEnrollmentRepository(
     private fun EnrollmentsRecord.toEnrollment(studentId: UserId, offering: SubjectOffering) = Enrollment(
         studentId = studentId,
         offering = offering,
-        grade = Grade(finalGrade?.toDouble() ?: 0.0),
+        grade = finalGrade?.toDouble()?.let(::Grade),
         absences = notNull(ENROLLMENTS.ABSENCES),
-        attendance = Attendance(attendancePercentage?.toDouble() ?: 0.0),
+        attendance = attendancePercentage?.toDouble()?.let(::Attendance),
         result = result,
     )
 }

@@ -10,9 +10,11 @@ import org.springframework.stereotype.Service
 class OneSignalService(
     @param:Value("\${onesignal.apiKey}")
     private val restApiKey: String,
+    @param:Value("\${onesignal.base-url:https://onesignal.com/api/v1/notifications/}")
+    baseUrl: String,
 ) {
 
-    private val oneSignalConnector: OneSignalConnector = Connector().createConnection()
+    private val oneSignalConnector: OneSignalConnector = Connector().createConnection(baseUrl)
     private val headers = mapOf(
         "Authorization" to "Basic $restApiKey",
     )
@@ -24,8 +26,7 @@ class OneSignalService(
             data = OneSignalData(),
             contents = OneSignalContent(message)
         )
-        oneSignalConnector.createNotification(headers, oneSignalNotification)
-            .execute()
+        send(oneSignalNotification)
     }
 
     fun sendMessageToUser(userId: String, message: String) {
@@ -36,8 +37,14 @@ class OneSignalService(
             data = OneSignalData(),
             contents = OneSignalContent(message)
         )
-        oneSignalConnector.createNotification(headers, oneSignalNotification)
-            .execute()
+        send(oneSignalNotification)
+    }
+
+    private fun send(notification: OneSignalNotification) {
+        val response = oneSignalConnector.createNotification(headers, notification).execute()
+        if (!response.isSuccessful) {
+            throw OneSignalRejectedException(response.code(), response.errorBody()?.string().orEmpty())
+        }
     }
 
     companion object {

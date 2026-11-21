@@ -76,8 +76,9 @@ class UseCaseConfiguration {
         academicSystems: List<AcademicSystem>,
         cipher: SecretCipher,
         outbox: Outbox,
+        notifications: NotificationRepository,
         transaction: TransactionRunner,
-    ) = SyncStudentGrades(users, enrollments, academicSystems, cipher, outbox, transaction)
+    ) = SyncStudentGrades(users, enrollments, academicSystems, cipher, outbox, notifications, transaction)
 
     @Bean
     fun runDueSyncs(queue: SyncQueue, users: UserRepository, syncStudentGrades: SyncStudentGrades, observer: SyncObserver, clock: Clock) =
@@ -100,5 +101,5 @@ class UseCaseConfiguration {
         NotifyStudent(users, notifications, outbox, transaction)
 
     @Bean
-    fun broadcastNotification(pushSender: PushSender) = BroadcastNotification(pushSender)
+    fun broadcastNotification(notifications: NotificationRepository, pushSender: PushSender) = BroadcastNotification(notifications, pushSender)
 }

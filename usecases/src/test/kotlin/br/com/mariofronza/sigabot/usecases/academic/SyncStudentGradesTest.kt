@@ -16,6 +16,9 @@ import br.com.mariofronza.sigabot.usecases.academic.port.EnrollmentRepository
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.port.SecretCipher
 import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
+import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.entity.notification.NotificationKind
+import br.com.mariofronza.sigabot.usecases.notification.port.NotificationRepository
 import br.com.mariofronza.sigabot.usecases.notification.port.Outbox
 import br.com.mariofronza.sigabot.usecases.shared.TransactionRunner
 import io.kotest.assertions.throwables.shouldThrow
@@ -33,6 +36,7 @@ class SyncStudentGradesTest : FunSpec({
     val enrollments: EnrollmentRepository = mockk(relaxed = true)
     val siga: AcademicSystem = mockk()
     val outbox: Outbox = mockk(relaxed = true)
+    val notifications: NotificationRepository = mockk(relaxed = true)
     val cipher: SecretCipher = mockk()
     var insideTransaction = false
     var committed = false
@@ -42,7 +46,7 @@ class SyncStudentGradesTest : FunSpec({
             return block().also { insideTransaction = false; committed = true }
         }
     }
-    val sync = SyncStudentGrades(users, enrollments, listOf(siga), cipher, outbox, transaction)
+    val sync = SyncStudentGrades(users, enrollments, listOf(siga), cipher, outbox, notifications, transaction)
 
     val period = AcademicPeriod(2026, 1)
     val user = User.registerStudent(Email.of("ana@test.com"), "hash", AcademicAccount(InstitutionCode.UDESC, "login", byteArrayOf(1), "password"))
@@ -56,7 +60,7 @@ class SyncStudentGradesTest : FunSpec({
     }
 
     beforeTest {
-        clearMocks(users, enrollments, outbox, answers = false)
+        clearMocks(users, enrollments, outbox, notifications, answers = false)
         committed = false
         every { siga.institution } returns InstitutionCode.UDESC
         every { cipher.decrypt("login") } returns "plain-login"
@@ -88,6 +92,15 @@ class SyncStudentGradesTest : FunSpec({
         queuedInsideTransaction shouldBe true
     }
 
+    test("keeps the new grade in the student's notifications") {
+        sigaReports(9.5)
+        every { enrollments.findAll(user.id, period) } returns listOf(stored(0.0))
+
+        sync(user, SyncScope.Period(period))
+
+        verify { notifications.save(Notification(recipient = user.id, message = "Ana, você possui uma nota nova da matéria Banco de Dados", kind = NotificationKind.GRADE_POSTED)) }
+    }
+
     test("writes nothing when SIGA reports what is already stored") {
         sigaReports(9.5)
         every { enrollments.findAll(user.id, period) } returns listOf(stored(9.5))
@@ -115,5 +128,6 @@ class SyncStudentGradesTest : FunSpec({
         shouldThrow<IllegalStateException> { sync(user, SyncScope.Period(period)) }
 
         verify(exactly = 0) { outbox.add(any(), any()) }
+        verify(exactly = 0) { notifications.save(any()) }
     }
 })

@@ -10,6 +10,7 @@ import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.persistence.enrollment.JooqEnrollmentRepository
+import br.com.mariofronza.sigabot.persistence.notification.JooqNotificationRepository
 import br.com.mariofronza.sigabot.persistence.notification.JooqOutbox
 import br.com.mariofronza.sigabot.persistence.user.JooqUserRepository
 import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
@@ -32,12 +33,13 @@ import org.springframework.context.annotation.Import
 
 @JooqTest
 @ImportAutoConfiguration(FlywayAutoConfiguration::class)
-@Import(JooqUserRepository::class, JooqEnrollmentRepository::class, JooqOutbox::class, SpringTransactionRunner::class)
+@Import(JooqUserRepository::class, JooqEnrollmentRepository::class, JooqOutbox::class, JooqNotificationRepository::class, SpringTransactionRunner::class)
 class SyncCostTest : FunSpec() {
 
     @Autowired lateinit var users: JooqUserRepository
     @Autowired lateinit var enrollments: JooqEnrollmentRepository
     @Autowired lateinit var outbox: JooqOutbox
+    @Autowired lateinit var notifications: JooqNotificationRepository
     @Autowired lateinit var transaction: SpringTransactionRunner
     @Autowired lateinit var dsl: DSLContext
 
@@ -69,7 +71,7 @@ class SyncCostTest : FunSpec() {
         extension(SpringExtension())
 
         test("an unchanged sync writes nothing and costs a handful of statements") {
-            val sync = SyncStudentGrades(users, enrollments, listOf(siga), cipher, outbox, transaction)
+            val sync = SyncStudentGrades(users, enrollments, listOf(siga), cipher, outbox, notifications, transaction)
             val student = users.save(User.registerStudent(Email.of("ana@test.com"), "h", AcademicAccount(InstitutionCode.UDESC, "l", byteArrayOf(1), "p")))
             sync(student, SyncScope.Period(period))
             val stored = users.findById(student.id) ?: error("student was saved")
@@ -87,8 +89,8 @@ class SyncCostTest : FunSpec() {
             statements shouldBeLessThanOrEqual 3
         }
 
-        test("a changed grade writes only that enrollment and its push") {
-            val sync = SyncStudentGrades(users, enrollments, listOf(siga), cipher, outbox, transaction)
+        test("a changed grade writes only that enrollment, its push and its notification") {
+            val sync = SyncStudentGrades(users, enrollments, listOf(siga), cipher, outbox, notifications, transaction)
             val student = users.save(User.registerStudent(Email.of("bia@test.com"), "h", AcademicAccount(InstitutionCode.UDESC, "l2", byteArrayOf(2), "p")))
             sync(student, SyncScope.Period(period))
             val stored = users.findById(student.id) ?: error("student was saved")
@@ -97,7 +99,7 @@ class SyncCostTest : FunSpec() {
             val writesBefore = rowWrites()
             sync(stored, SyncScope.Period(period))
 
-            (rowWrites() - writesBefore) shouldBe 2
+            (rowWrites() - writesBefore) shouldBe 3
             outbox.countPending(maxAttempts = 10) shouldBe 1
         }
     }

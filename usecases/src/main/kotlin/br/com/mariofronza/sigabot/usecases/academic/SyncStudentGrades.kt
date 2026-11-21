@@ -11,6 +11,9 @@ import br.com.mariofronza.sigabot.usecases.academic.port.EnrollmentRepository
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.port.SecretCipher
 import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
+import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.entity.notification.NotificationKind
+import br.com.mariofronza.sigabot.usecases.notification.port.NotificationRepository
 import br.com.mariofronza.sigabot.usecases.notification.port.Outbox
 import br.com.mariofronza.sigabot.usecases.shared.TransactionRunner
 import org.slf4j.LoggerFactory
@@ -21,6 +24,7 @@ class SyncStudentGrades(
     private val academicSystems: List<AcademicSystem>,
     private val secretCipher: SecretCipher,
     private val outbox: Outbox,
+    private val notifications: NotificationRepository,
     private val transaction: TransactionRunner,
 ) {
 
@@ -51,7 +55,9 @@ class SyncStudentGrades(
 
     private fun announce(student: User, event: GradePosted) {
         logger.info("New grade for user {} in {}", student.id, event.offering.subject)
-        outbox.add(student.id, "${student.username}, você possui uma nota nova da matéria ${event.offering.subject}")
+        val message = "${student.username}, você possui uma nota nova da matéria ${event.offering.subject}"
+        outbox.add(student.id, message)
+        notifications.save(Notification(recipient = student.id, message = message, kind = NotificationKind.GRADE_POSTED))
     }
 
     private fun systemFor(account: AcademicAccount) =

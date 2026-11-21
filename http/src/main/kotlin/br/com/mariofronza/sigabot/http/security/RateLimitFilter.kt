@@ -5,16 +5,20 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpHeaders.RETRY_AFTER
 import org.springframework.http.HttpMethod.POST
+import org.springframework.http.HttpMethod.PUT
 import org.springframework.web.filter.OncePerRequestFilter
 
 class RateLimitFilter(
     private val limiter: RateLimiter,
 ) : OncePerRequestFilter() {
 
-    private val limited = Regex("^/api/[^/]+/(users|sessions|sessions/refresh)$")
+    private val limited = mapOf(
+        POST.name() to Regex("^/api/[^/]+/(users|sessions|sessions/refresh|me/syncs)$"),
+        PUT.name() to Regex("^/api/[^/]+/me/siga-credential$"),
+    )
 
     override fun shouldNotFilter(request: HttpServletRequest) =
-        request.method != POST.name() || !limited.matches(request.requestURI)
+        limited[request.method]?.matches(request.requestURI) != true
 
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
         val admission = limiter.acquire("${request.remoteAddr} ${request.requestURI}")

@@ -58,6 +58,16 @@ class RateLimitTest : FunSpec({
         }
     }
 
+    test("limits the routes that lead to a SIGA login") {
+        val filter = RateLimitFilter(RateLimiter(limit = 0, window = Duration.ofMinutes(1), clock = Clock.systemUTC()))
+        fun status(method: String, uri: String) =
+            MockHttpServletResponse().also { filter.doFilter(MockHttpServletRequest(method, uri), it, MockFilterChain()) }.status
+
+        status("POST", "/api/v1/me/syncs") shouldBe 429
+        status("PUT", "/api/v1/me/siga-credential") shouldBe 429
+        status("GET", "/api/v1/me/sync") shouldBe 200
+    }
+
     test("leaves other routes alone") {
         val filter = RateLimitFilter(RateLimiter(limit = 0, window = Duration.ofMinutes(1), clock = Clock.systemUTC()))
         val chain = MockFilterChain()

@@ -7,6 +7,7 @@ import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.persistence.user.userKey
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.excluded
@@ -50,8 +51,9 @@ class JooqSyncQueue(
         return due.map { SyncJob(UserId(it.notNull(USERS.EXTERNAL_ID)), it.notNull(SYNC_JOBS.ATTEMPTS)) }
     }
 
-    override fun completed(userId: UserId, nextRunAt: Instant) {
+    override fun completed(userId: UserId, syncedAt: Instant, nextRunAt: Instant) {
         dsl.update(SYNC_JOBS)
+            .set(SYNC_JOBS.LAST_SYNCED_AT, syncedAt.utc())
             .set(SYNC_JOBS.NEXT_RUN_AT, nextRunAt.utc())
             .setNull(SYNC_JOBS.LOCKED_UNTIL)
             .set(SYNC_JOBS.ATTEMPTS, 0)
@@ -72,6 +74,19 @@ class JooqSyncQueue(
 
     override fun countDue(now: Instant): Long =
         dsl.fetchCount(dsl.selectFrom(SYNC_JOBS.join(USERS).on(USERS.ID.eq(SYNC_JOBS.USER_ID))).where(dueAt(now))).toLong()
+
+    override fun statusOf(userId: UserId, now: Instant): SyncStatus? =
+        dsl.selectFrom(SYNC_JOBS)
+            .where(SYNC_JOBS.USER_ID.eq(userKey(userId)))
+            .fetchOne {
+                SyncStatus(
+                    lastSyncedAt = it.lastSyncedAt?.toInstant(),
+                    nextRunAt = it.notNull(SYNC_JOBS.NEXT_RUN_AT).toInstant(),
+                    running = it.lockedUntil?.toInstant()?.isAfter(now) ?: false,
+                    attempts = it.notNull(SYNC_JOBS.ATTEMPTS),
+                    lastError = it.lastError,
+                )
+            }
 
     private fun dueAt(now: Instant): Condition = SYNC_JOBS.NEXT_RUN_AT.le(now.utc())
         .and(SYNC_JOBS.LOCKED_UNTIL.isNull.or(SYNC_JOBS.LOCKED_UNTIL.lt(now.utc())))

@@ -10,7 +10,9 @@ import br.com.mariofronza.sigabot.entity.notification.Notification
 import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
+import br.com.mariofronza.sigabot.usecases.academic.ShowSyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
 import br.com.mariofronza.sigabot.usecases.notification.BroadcastNotification
@@ -69,6 +71,7 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var userDetailsService: UserDetailsService
     @Autowired lateinit var registerStudent: RegisterStudent
     @Autowired lateinit var syncStudentGrades: SyncStudentGrades
+    @Autowired lateinit var showSyncStatus: ShowSyncStatus
     @Autowired lateinit var listEnrolledPeriods: ListEnrolledPeriods
     @Autowired lateinit var listPeriodEnrollments: ListPeriodEnrollments
     @Autowired lateinit var listNotifications: ListNotifications
@@ -83,6 +86,7 @@ class ApiTest : FunSpec() {
         @Bean fun userDetailsService(): UserDetailsService = mockk()
         @Bean fun registerStudent(): RegisterStudent = mockk()
         @Bean fun syncStudentGrades(): SyncStudentGrades = mockk()
+        @Bean fun showSyncStatus(): ShowSyncStatus = mockk()
         @Bean fun listEnrolledPeriods(): ListEnrolledPeriods = mockk()
         @Bean fun listPeriodEnrollments(): ListPeriodEnrollments = mockk()
         @Bean fun listNotifications(): ListNotifications = mockk()
@@ -331,6 +335,26 @@ class ApiTest : FunSpec() {
                     status { isBadRequest() }
                     content { contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON) }
                 }
+        }
+
+        test("shows the sync status of the signed in student") {
+            val user = signedIn(Role.STUDENT)
+            every { showSyncStatus(user.id) } returns SyncStatus(
+                lastSyncedAt = Instant.parse("2026-11-20T12:00:00Z"),
+                nextRunAt = Instant.parse("2026-11-20T13:00:00Z"),
+                running = false,
+                attempts = 2,
+                lastError = "SIGA did not answer",
+            )
+
+            mockMvc.get("/api/v1/me/sync") { bearer(user) }.andExpect {
+                status { isOk() }
+                jsonPath("$.lastSyncedAt") { value("2026-11-20T12:00:00Z") }
+                jsonPath("$.nextRunAt") { value("2026-11-20T13:00:00Z") }
+                jsonPath("$.running") { value(false) }
+                jsonPath("$.attempts") { value(2) }
+                jsonPath("$.lastError") { value("SIGA did not answer") }
+            }
         }
 
         test("pages the notifications of the signed in user") {

@@ -8,6 +8,7 @@ import br.com.mariofronza.sigabot.persistence.notification.JooqOutbox
 import br.com.mariofronza.sigabot.persistence.sync.JooqSyncQueue
 import br.com.mariofronza.sigabot.persistence.user.JooqUserRepository
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.notification.port.OutboxMessage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -75,9 +76,29 @@ class QueueAndOutboxTest : FunSpec() {
 
             queue.claimDue(now.plusSeconds(300), 10, lease) shouldBe listOf(SyncJob(ana.id, 1))
 
-            queue.completed(ana.id, now.plusSeconds(3600))
+            queue.completed(ana.id, now, now.plusSeconds(3600))
             queue.claimDue(now.plusSeconds(3599), 10, lease).shouldBeEmpty()
             queue.claimDue(now.plusSeconds(3600), 10, lease) shouldBe listOf(SyncJob(ana.id, 0))
+        }
+
+        test("tells when a student was last synced, whether a sync is running and why the last one failed") {
+            val ana = student("ana")
+            queue.enqueue(ana.id, now)
+            queue.statusOf(ana.id, now) shouldBe SyncStatus(lastSyncedAt = null, nextRunAt = now, running = false, attempts = 0, lastError = null)
+
+            queue.claimDue(now, 10, lease)
+            queue.statusOf(ana.id, now.plusSeconds(1))?.running shouldBe true
+
+            queue.completed(ana.id, now.plusSeconds(10), now.plusSeconds(3600))
+            queue.failed(ana.id, "SIGA did not answer", now.plusSeconds(4000))
+
+            queue.statusOf(ana.id, now.plusSeconds(20)) shouldBe SyncStatus(
+                lastSyncedAt = now.plusSeconds(10),
+                nextRunAt = now.plusSeconds(4000),
+                running = false,
+                attempts = 1,
+                lastError = "SIGA did not answer",
+            )
         }
 
         test("keeps a single job per student when enqueued again") {

@@ -30,6 +30,7 @@ import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.http.security.SecurityConfig
 import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.http.security.JWTUtil
+import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.EmailAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.UserNotFoundException
 import io.kotest.core.spec.style.FunSpec
@@ -160,6 +161,20 @@ class ApiTest : FunSpec() {
             }.andExpect {
                 status { isConflict() }
                 content { contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON) }
+                jsonPath("$.type") { value("urn:siga-bot:problem:email-already-registered") }
+                jsonPath("$.field") { value("email") }
+            }
+        }
+
+        test("answers 409 on the cpf field when the SIGA credential is already registered") {
+            every { registerStudent(any()) } throws AcademicAccountAlreadyRegisteredException()
+
+            mockMvc.post("/api/v1/users") {
+                json("""{"email":"ana@test.com","password":"app-password","sigaCredential":{"cpf":"000","password":"siga"}}""")
+            }.andExpect {
+                status { isConflict() }
+                jsonPath("$.type") { value("urn:siga-bot:problem:siga-credential-already-registered") }
+                jsonPath("$.field") { value("cpf") }
             }
         }
 

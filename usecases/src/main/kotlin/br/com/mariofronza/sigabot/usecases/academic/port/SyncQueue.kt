@@ -8,9 +8,11 @@ interface SyncQueue {
 
     fun enqueue(userId: UserId, runAt: Instant)
 
+    fun request(userId: UserId, scope: SyncScope, runAt: Instant)
+
     fun claimDue(now: Instant, limit: Int, lease: Duration): List<SyncJob>
 
-    fun completed(userId: UserId, syncedAt: Instant, nextRunAt: Instant)
+    fun completed(userId: UserId, syncedAt: Instant, nextRunAt: Instant, fulfilled: SyncScope?)
 
     fun failed(userId: UserId, error: String, retryAt: Instant)
 
@@ -19,7 +21,7 @@ interface SyncQueue {
     fun statusOf(userId: UserId, now: Instant): SyncStatus?
 }
 
-data class SyncJob(val userId: UserId, val attempts: Int)
+data class SyncJob(val userId: UserId, val attempts: Int, val requested: SyncScope? = null)
 
 data class SyncStatus(
     val lastSyncedAt: Instant?,

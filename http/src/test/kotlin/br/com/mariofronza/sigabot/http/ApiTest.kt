@@ -5,13 +5,12 @@ import br.com.mariofronza.sigabot.usecases.identity.Session
 import br.com.mariofronza.sigabot.usecases.identity.RevokeSession
 import br.com.mariofronza.sigabot.usecases.identity.RefreshSession
 import br.com.mariofronza.sigabot.usecases.identity.OpenSession
-import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.entity.notification.Notification
 import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
 import br.com.mariofronza.sigabot.usecases.academic.ShowSyncStatus
-import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
+import br.com.mariofronza.sigabot.usecases.academic.RequestSync
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
@@ -70,7 +69,7 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var jwtUtil: JWTUtil
     @Autowired lateinit var userDetailsService: UserDetailsService
     @Autowired lateinit var registerStudent: RegisterStudent
-    @Autowired lateinit var syncStudentGrades: SyncStudentGrades
+    @Autowired lateinit var requestSync: RequestSync
     @Autowired lateinit var showSyncStatus: ShowSyncStatus
     @Autowired lateinit var listEnrolledPeriods: ListEnrolledPeriods
     @Autowired lateinit var listPeriodEnrollments: ListPeriodEnrollments
@@ -85,7 +84,7 @@ class ApiTest : FunSpec() {
     class Mocks {
         @Bean fun userDetailsService(): UserDetailsService = mockk()
         @Bean fun registerStudent(): RegisterStudent = mockk()
-        @Bean fun syncStudentGrades(): SyncStudentGrades = mockk()
+        @Bean fun requestSync(): RequestSync = mockk(relaxed = true)
         @Bean fun showSyncStatus(): ShowSyncStatus = mockk()
         @Bean fun listEnrolledPeriods(): ListEnrolledPeriods = mockk()
         @Bean fun listPeriodEnrollments(): ListPeriodEnrollments = mockk()
@@ -295,36 +294,25 @@ class ApiTest : FunSpec() {
             }
         }
 
-        test("syncs one term from SIGA") {
+        test("queues a sync of one term and points at the sync status") {
             val user = signedIn(Role.STUDENT)
-            every { syncStudentGrades(user, SyncScope.Period(AcademicPeriod(2026, 1))) } returns listOf(AcademicPeriod(2026, 1))
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"year":2026,"term":1}""") }
                 .andExpect {
-                    status { isOk() }
-                    jsonPath("$[0].year") { value(2026) }
+                    status { isAccepted() }
+                    header { string("Location", "http://localhost/api/v1/me/sync") }
                 }
+
+            verify { requestSync(user.id, SyncScope.Period(AcademicPeriod(2026, 1))) }
         }
 
-        test("syncs every term from SIGA") {
+        test("queues a sync of every term") {
             val user = signedIn(Role.STUDENT)
-            every { syncStudentGrades(user, SyncScope.Everything) } returns listOf(AcademicPeriod(2026, 1))
 
             mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"scope":"full"}""") }
-                .andExpect { status { isOk() } }
+                .andExpect { status { isAccepted() } }
 
-            verify { syncStudentGrades(user, SyncScope.Everything) }
-        }
-
-        test("answers 503 as a problem when SIGA is unavailable during a sync") {
-            val user = signedIn(Role.STUDENT)
-            every { syncStudentGrades(user, SyncScope.Period(AcademicPeriod(2026, 1))) } throws SigaUnavailableException("SIGA did not answer")
-
-            mockMvc.post("/api/v1/me/syncs") { bearer(user); json("""{"year":2026,"term":1}""") }
-                .andExpect {
-                    status { isServiceUnavailable() }
-                    content { contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON) }
-                }
+            verify { requestSync(user.id, SyncScope.Everything) }
         }
 
         test("asks for the term when syncing one term") {

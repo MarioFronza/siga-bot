@@ -1,10 +1,5 @@
 package br.com.mariofronza.sigabot.http.config
 
-import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
-import br.com.mariofronza.sigabot.usecases.academic.port.SigaPeriodNotFoundException
-import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
-import org.springframework.http.HttpStatus.BAD_GATEWAY
-import org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE
 import org.springframework.http.HttpStatus.BAD_REQUEST
 import br.com.mariofronza.sigabot.entity.user.AcademicAccountAlreadyRegisteredException
 import br.com.mariofronza.sigabot.entity.user.EmailAlreadyRegisteredException
@@ -53,15 +48,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(UserNotFoundException::class)
     fun notFound(e: UserNotFoundException): ProblemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, e.message)
-
-    @ExceptionHandler(SigaPeriodNotFoundException::class)
-    fun periodNotFound(e: SigaPeriodNotFoundException): ProblemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, e.message)
-
-    @ExceptionHandler(SigaUnavailableException::class)
-    fun sigaUnavailable(e: SigaUnavailableException): ProblemDetail = ProblemDetail.forStatusAndDetail(SERVICE_UNAVAILABLE, e.message)
-
-    @ExceptionHandler(SigaLayoutChangedException::class)
-    fun sigaChanged(e: SigaLayoutChangedException): ProblemDetail = ProblemDetail.forStatusAndDetail(BAD_GATEWAY, e.message)
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun badRequest(e: IllegalArgumentException): ProblemDetail = ProblemDetail.forStatusAndDetail(BAD_REQUEST, e.message)

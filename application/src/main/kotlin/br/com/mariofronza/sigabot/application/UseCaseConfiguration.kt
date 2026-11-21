@@ -11,6 +11,7 @@ import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
 import br.com.mariofronza.sigabot.usecases.academic.RunDueSyncs
+import br.com.mariofronza.sigabot.usecases.academic.RequestSync
 import br.com.mariofronza.sigabot.usecases.academic.ShowSyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
 import br.com.mariofronza.sigabot.usecases.academic.port.AcademicSystem
@@ -87,6 +88,9 @@ class UseCaseConfiguration {
 
     @Bean
     fun deliverOutbox(outbox: Outbox, pushSender: PushSender, clock: Clock) = DeliverOutbox(outbox, pushSender, clock)
+
+    @Bean
+    fun requestSync(queue: SyncQueue, clock: Clock) = RequestSync(queue, clock)
 
     @Bean
     fun showSyncStatus(queue: SyncQueue, clock: Clock) = ShowSyncStatus(queue, clock)

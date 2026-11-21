@@ -57,10 +57,10 @@ class RunDueSyncs(
         val started = clock.instant()
         try {
             val student = checkNotNull(users.findById(job.userId)) { "User ${job.userId} is gone" }
-            syncStudentGrades(student, scope)
+            syncStudentGrades(student, job.requested ?: scope)
             observer.synced(Duration.between(started, clock.instant()))
             val finished = clock.instant()
-            queue.completed(job.userId, finished, finished.plus(settings.interval))
+            queue.completed(job.userId, finished, finished.plus(settings.interval), job.requested)
         } catch (e: Exception) {
             logger.warn("Sync failed for user {} (attempt {})", job.userId, job.attempts + 1, e)
             observer.failed(e)

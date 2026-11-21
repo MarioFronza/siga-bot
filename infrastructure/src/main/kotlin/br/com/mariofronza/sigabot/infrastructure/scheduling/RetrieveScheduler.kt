@@ -20,7 +20,7 @@ class RetrieveScheduler(
 
     private val scope: SyncScope = periodOverride(year, term)?.let(SyncScope::Period) ?: SyncScope.Latest
 
-    @Scheduled(fixedDelayString = "\${sync.poll-delay:PT30S}")
+    @Scheduled(fixedDelayString = "\${sync.poll-delay:PT5S}")
     fun runDueSyncs() {
         runDueSyncs(scope)
     }

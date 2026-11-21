@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 
 class RunDueSyncs(
     private val queue: SyncQueue,
@@ -17,7 +18,7 @@ class RunDueSyncs(
     private val observer: SyncObserver,
     private val clock: Clock,
     private val settings: Settings = Settings(),
-) {
+) : AutoCloseable {
 
     data class Settings(
         val interval: Duration = Duration.ofHours(1),
@@ -27,10 +28,27 @@ class RunDueSyncs(
         val maxRetry: Duration = Duration.ofHours(6),
     )
 
+    private val slots = Semaphore(settings.concurrency)
+    private val executor = Executors.newVirtualThreadPerTaskExecutor()
+
     operator fun invoke(scope: SyncScope): Int {
-        val jobs = queue.claimDue(clock.instant(), settings.concurrency, settings.lease)
-        Executors.newVirtualThreadPerTaskExecutor().use { executor ->
-            jobs.map { executor.submit { run(it, scope) } }.forEach { it.get() }
+        val free = slots.drainPermits()
+        if (free == 0) return 0
+        val jobs = try {
+            queue.claimDue(clock.instant(), free, settings.lease)
+        } catch (e: Exception) {
+            slots.release(free)
+            throw e
+        }
+        slots.release(free - jobs.size)
+        jobs.forEach { job ->
+            executor.submit {
+                try {
+                    run(job, scope)
+                } finally {
+                    slots.release()
+                }
+            }
         }
         return jobs.size
     }
@@ -48,6 +66,8 @@ class RunDueSyncs(
             queue.failed(job.userId, e.message ?: e.javaClass.simpleName, clock.instant().plus(retryDelay(job.attempts + 1)))
         }
     }
+
+    override fun close() = executor.close()
 
     internal fun retryDelay(attempt: Int): Duration {
         val doublings = (attempt - 1).coerceIn(0, 20)

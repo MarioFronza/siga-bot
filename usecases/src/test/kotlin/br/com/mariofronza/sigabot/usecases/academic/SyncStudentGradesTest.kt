@@ -65,7 +65,7 @@ class SyncStudentGradesTest : FunSpec({
 
     test("stores what SIGA reports in one transaction and answers the synced periods") {
         sigaReports(8.0)
-        every { enrollments.find(user.id, offering) } returns null
+        every { enrollments.findAll(user.id, period) } returns emptyList()
         val saved = slot<Enrollment>()
         every { enrollments.save(capture(saved)) } returns Unit
 
@@ -78,7 +78,7 @@ class SyncStudentGradesTest : FunSpec({
 
     test("queues a push in the same transaction when a stored grade changes") {
         sigaReports(9.5)
-        every { enrollments.find(user.id, offering) } returns stored(0.0)
+        every { enrollments.findAll(user.id, period) } returns listOf(stored(0.0))
         var queuedInsideTransaction = false
         every { outbox.add(any(), any()) } answers { queuedInsideTransaction = insideTransaction }
 
@@ -88,9 +88,19 @@ class SyncStudentGradesTest : FunSpec({
         queuedInsideTransaction shouldBe true
     }
 
+    test("writes nothing when SIGA reports what is already stored") {
+        sigaReports(9.5)
+        every { enrollments.findAll(user.id, period) } returns listOf(stored(9.5))
+
+        sync(user.rename("Ana Souza"), SyncScope.Period(period))
+
+        verify(exactly = 0) { users.save(any()) }
+        verify(exactly = 0) { enrollments.save(any()) }
+    }
+
     test("stays quiet when the grade did not change") {
         sigaReports(9.5)
-        every { enrollments.find(user.id, offering) } returns stored(9.5)
+        every { enrollments.findAll(user.id, period) } returns listOf(stored(9.5))
 
         sync(user, SyncScope.Period(period))
 
@@ -99,7 +109,7 @@ class SyncStudentGradesTest : FunSpec({
 
     test("queues nothing when storing fails") {
         sigaReports(9.5)
-        every { enrollments.find(user.id, offering) } returns stored(0.0)
+        every { enrollments.findAll(user.id, period) } returns listOf(stored(0.0))
         every { enrollments.save(any()) } throws IllegalStateException("database down")
 
         shouldThrow<IllegalStateException> { sync(user, SyncScope.Period(period)) }

@@ -18,4 +18,14 @@ data class SubjectOffering(
         }
         require(courseLoad >= 0) { "Course load $courseLoad cannot be negative" }
     }
+
+    val key: Key get() = Key(institution, period, course, classSection, subject)
+
+    data class Key(
+        val institution: InstitutionCode,
+        val period: AcademicPeriod,
+        val course: String,
+        val classSection: String,
+        val subject: String,
+    )
 }

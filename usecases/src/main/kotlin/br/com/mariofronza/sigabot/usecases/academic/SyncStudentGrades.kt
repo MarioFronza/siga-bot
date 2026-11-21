@@ -32,15 +32,19 @@ class SyncStudentGrades(
         val record = systemFor(account).fetch(credentialsOf(account), scope)
         val student = user.rename(record.studentName)
 
-        transaction.inTransaction { store(student, record).forEach { announce(student, it) } }
+        transaction.inTransaction { store(user, student, record).forEach { announce(student, it) } }
         return record.periods
     }
 
-    private fun store(student: User, record: AcademicRecord): List<GradePosted> {
-        users.save(student)
+    private fun store(stored: User, student: User, record: AcademicRecord): List<GradePosted> {
+        if (student != stored) users.save(student)
+        val existing = record.results.map { it.offering.period }.distinct()
+            .flatMap { enrollments.findAll(student.id, it) }
+            .associateBy { it.offering.key }
         return record.results.flatMap { result ->
-            val recorded = Enrollment.record(student.id, result.offering, enrollments.find(student.id, result.offering), result.outcome)
-            enrollments.save(recorded.enrollment)
+            val previous = existing[result.offering.key]
+            val recorded = Enrollment.record(student.id, result.offering, previous, result.outcome)
+            if (recorded.enrollment != previous) enrollments.save(recorded.enrollment)
             recorded.events
         }
     }

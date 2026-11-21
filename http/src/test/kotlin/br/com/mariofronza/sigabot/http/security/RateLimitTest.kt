@@ -24,13 +24,23 @@ class RateLimitTest : FunSpec({
         val clock = MovableClock(Instant.parse("2026-11-20T12:00:00Z"))
         val limiter = RateLimiter(limit = 2, window = Duration.ofMinutes(1), clock = clock)
 
-        limiter.tryAcquire("1.1.1.1") shouldBe true
-        limiter.tryAcquire("1.1.1.1") shouldBe true
-        limiter.tryAcquire("1.1.1.1") shouldBe false
-        limiter.tryAcquire("2.2.2.2") shouldBe true
+        limiter.acquire("1.1.1.1").allowed shouldBe true
+        limiter.acquire("1.1.1.1").allowed shouldBe true
+        limiter.acquire("1.1.1.1").allowed shouldBe false
+        limiter.acquire("2.2.2.2").allowed shouldBe true
 
         clock.now = clock.now.plusSeconds(60)
-        limiter.tryAcquire("1.1.1.1") shouldBe true
+        limiter.acquire("1.1.1.1").allowed shouldBe true
+    }
+
+    test("tells a refused caller how long until the window starts over") {
+        val clock = MovableClock(Instant.parse("2026-11-20T12:00:00Z"))
+        val limiter = RateLimiter(limit = 1, window = Duration.ofMinutes(1), clock = clock)
+        limiter.acquire("1.1.1.1")
+
+        clock.now = clock.now.plusSeconds(20)
+
+        limiter.acquire("1.1.1.1").retryAfter shouldBe Duration.ofSeconds(40)
     }
 
     test("answers 429 once an address goes over the limit on sign-up or login") {
@@ -42,7 +52,10 @@ class RateLimitTest : FunSpec({
         }
 
         login().status shouldBe 200
-        login().status shouldBe 429
+        login().let {
+            it.status shouldBe 429
+            it.getHeader("Retry-After") shouldBe "60"
+        }
     }
 
     test("leaves other routes alone") {

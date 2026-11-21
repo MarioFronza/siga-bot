@@ -7,7 +7,9 @@ import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.persistence.notification.JooqOutbox
 import br.com.mariofronza.sigabot.persistence.sync.JooqSyncQueue
 import br.com.mariofronza.sigabot.persistence.user.JooqUserRepository
+import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.notification.port.OutboxMessage
 import io.kotest.core.spec.style.FunSpec
@@ -76,7 +78,7 @@ class QueueAndOutboxTest : FunSpec() {
 
             queue.claimDue(now.plusSeconds(300), 10, lease) shouldBe listOf(SyncJob(ana.id, 1))
 
-            queue.completed(ana.id, now, now.plusSeconds(3600))
+            queue.completed(ana.id, now, now.plusSeconds(3600), null)
             queue.claimDue(now.plusSeconds(3599), 10, lease).shouldBeEmpty()
             queue.claimDue(now.plusSeconds(3600), 10, lease) shouldBe listOf(SyncJob(ana.id, 0))
         }
@@ -84,21 +86,71 @@ class QueueAndOutboxTest : FunSpec() {
         test("tells when a student was last synced, whether a sync is running and why the last one failed") {
             val ana = student("ana")
             queue.enqueue(ana.id, now)
-            queue.statusOf(ana.id, now) shouldBe SyncStatus(lastSyncedAt = null, nextRunAt = now, running = false, attempts = 0, lastError = null)
+            queue.statusOf(ana.id, now) shouldBe SyncStatus(lastSyncedAt = null, nextRunAt = now, running = false, pending = false, attempts = 0, lastError = null)
 
             queue.claimDue(now, 10, lease)
             queue.statusOf(ana.id, now.plusSeconds(1))?.running shouldBe true
 
-            queue.completed(ana.id, now.plusSeconds(10), now.plusSeconds(3600))
+            queue.completed(ana.id, now.plusSeconds(10), now.plusSeconds(3600), null)
             queue.failed(ana.id, "SIGA did not answer", now.plusSeconds(4000))
 
             queue.statusOf(ana.id, now.plusSeconds(20)) shouldBe SyncStatus(
                 lastSyncedAt = now.plusSeconds(10),
                 nextRunAt = now.plusSeconds(4000),
                 running = false,
+                pending = false,
                 attempts = 1,
                 lastError = "SIGA did not answer",
             )
+        }
+
+        test("runs a requested scope next and forgets it once fulfilled") {
+            val ana = student("ana")
+            queue.enqueue(ana.id, now.plusSeconds(3600))
+            queue.request(ana.id, SyncScope.Everything, now)
+
+            queue.claimDue(now, 10, lease) shouldBe listOf(SyncJob(ana.id, 0, SyncScope.Everything))
+            queue.completed(ana.id, now, now.plusSeconds(3600), SyncScope.Everything)
+
+            queue.claimDue(now.plusSeconds(60), 10, lease).shouldBeEmpty()
+            queue.claimDue(now.plusSeconds(3600), 10, lease) shouldBe listOf(SyncJob(ana.id, 0, null))
+        }
+
+        test("keeps a request made while a sync is running") {
+            val ana = student("ana")
+            queue.enqueue(ana.id, now)
+            queue.claimDue(now, 10, lease)
+            queue.request(ana.id, SyncScope.Period(AcademicPeriod(2026, 1)), now.plusSeconds(1))
+
+            queue.completed(ana.id, now.plusSeconds(2), now.plusSeconds(3600), null)
+
+            queue.claimDue(now.plusSeconds(3), 10, lease) shouldBe listOf(SyncJob(ana.id, 0, SyncScope.Period(AcademicPeriod(2026, 1))))
+        }
+
+        test("tells a requested sync is pending until it completes or fails") {
+            val ana = student("ana")
+            val bia = student("bia")
+            queue.request(ana.id, SyncScope.Everything, now)
+            queue.request(bia.id, SyncScope.Everything, now)
+            queue.statusOf(ana.id, now)?.pending shouldBe true
+
+            queue.claimDue(now, 10, lease)
+            queue.statusOf(ana.id, now)?.pending shouldBe true
+
+            queue.completed(ana.id, now, now.plusSeconds(3600), SyncScope.Everything)
+            queue.failed(bia.id, "SIGA did not answer", now.plusSeconds(300))
+            queue.statusOf(ana.id, now)?.pending shouldBe false
+            queue.statusOf(bia.id, now)?.pending shouldBe false
+        }
+
+        test("drops a request whose sync failed and retries on the regular scope") {
+            val ana = student("ana")
+            queue.request(ana.id, SyncScope.Everything, now)
+            queue.claimDue(now, 10, lease)
+
+            queue.failed(ana.id, "SIGA did not answer", now.plusSeconds(300))
+
+            queue.claimDue(now.plusSeconds(300), 10, lease) shouldBe listOf(SyncJob(ana.id, 1, null))
         }
 
         test("keeps a single job per student when enqueued again") {

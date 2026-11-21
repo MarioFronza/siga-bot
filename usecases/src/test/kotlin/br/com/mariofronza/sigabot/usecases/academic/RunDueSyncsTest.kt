@@ -55,8 +55,17 @@ class RunDueSyncsTest : FunSpec({
         runDueSyncs().use { it(SyncScope.Latest) shouldBe 2 }
 
         verify { syncStudentGrades(ana, SyncScope.Latest) }
-        verify { queue.completed(ana.id, now, now.plus(Duration.ofHours(1))) }
-        verify { queue.completed(bia.id, now, now.plus(Duration.ofHours(1))) }
+        verify { queue.completed(ana.id, now, now.plus(Duration.ofHours(1)), null) }
+        verify { queue.completed(bia.id, now, now.plus(Duration.ofHours(1)), null) }
+    }
+
+    test("runs the scope a student asked for instead of the default one") {
+        every { queue.claimDue(now, 8, lease) } returns listOf(SyncJob(ana.id, 0, requested = SyncScope.Everything))
+
+        runDueSyncs().use { it(SyncScope.Latest) }
+
+        verify { syncStudentGrades(ana, SyncScope.Everything) }
+        verify { queue.completed(ana.id, now, now.plus(Duration.ofHours(1)), SyncScope.Everything) }
     }
 
     test("backs off a failing student without stopping the others") {
@@ -66,7 +75,7 @@ class RunDueSyncsTest : FunSpec({
         runDueSyncs().use { it(SyncScope.Latest) }
 
         verify { queue.failed(ana.id, "SIGA did not answer", now.plus(Duration.ofMinutes(20))) }
-        verify { queue.completed(bia.id, any(), any()) }
+        verify { queue.completed(bia.id, any(), any(), any()) }
         verify { observer.failed(any<SigaUnavailableException>()) }
     }
 
@@ -80,16 +89,16 @@ class RunDueSyncsTest : FunSpec({
         runDueSyncs(concurrency = 2).use { run ->
             run(SyncScope.Latest) shouldBe 2
             slowStarted.await(5, TimeUnit.SECONDS)
-            verify(timeout = 5_000) { queue.completed(bia.id, any(), any()) }
+            verify(timeout = 5_000) { queue.completed(bia.id, any(), any(), any()) }
 
             run(SyncScope.Latest) shouldBe 1
 
-            verify(timeout = 5_000) { queue.completed(caio.id, any(), any()) }
-            verify(exactly = 0) { queue.completed(ana.id, any(), any()) }
+            verify(timeout = 5_000) { queue.completed(caio.id, any(), any(), any()) }
+            verify(exactly = 0) { queue.completed(ana.id, any(), any(), any()) }
             releaseSlow.countDown()
         }
 
-        verify { queue.completed(ana.id, any(), any()) }
+        verify { queue.completed(ana.id, any(), any(), any()) }
     }
 
     test("claims nothing while every slot is busy") {

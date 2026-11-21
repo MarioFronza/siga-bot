@@ -11,6 +11,7 @@ import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
 import br.com.mariofronza.sigabot.usecases.academic.ShowSyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.RequestSync
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncFailureReason
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
@@ -360,7 +361,7 @@ class ApiTest : FunSpec() {
                 running = false,
                 pending = true,
                 attempts = 2,
-                lastError = "SIGA did not answer",
+                lastErrorReason = SyncFailureReason.INVALID_CREDENTIAL,
             )
 
             mockMvc.get("/api/v1/me/sync") { bearer(user) }.andExpect {
@@ -370,7 +371,8 @@ class ApiTest : FunSpec() {
                 jsonPath("$.running") { value(false) }
                 jsonPath("$.pending") { value(true) }
                 jsonPath("$.attempts") { value(2) }
-                jsonPath("$.lastError") { value("SIGA did not answer") }
+                jsonPath("$.lastErrorReason") { value("INVALID_CREDENTIAL") }
+                jsonPath("$.lastError") { doesNotExist() }
             }
         }
 

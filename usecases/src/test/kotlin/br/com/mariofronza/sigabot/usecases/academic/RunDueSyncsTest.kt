@@ -55,8 +55,8 @@ class RunDueSyncsTest : FunSpec({
         runDueSyncs().use { it(SyncScope.Latest) shouldBe 2 }
 
         verify { syncStudentGrades(ana, SyncScope.Latest) }
-        verify { queue.completed(ana.id, now.plus(Duration.ofHours(1))) }
-        verify { queue.completed(bia.id, now.plus(Duration.ofHours(1))) }
+        verify { queue.completed(ana.id, now, now.plus(Duration.ofHours(1))) }
+        verify { queue.completed(bia.id, now, now.plus(Duration.ofHours(1))) }
     }
 
     test("backs off a failing student without stopping the others") {
@@ -66,7 +66,7 @@ class RunDueSyncsTest : FunSpec({
         runDueSyncs().use { it(SyncScope.Latest) }
 
         verify { queue.failed(ana.id, "SIGA did not answer", now.plus(Duration.ofMinutes(20))) }
-        verify { queue.completed(bia.id, any()) }
+        verify { queue.completed(bia.id, any(), any()) }
         verify { observer.failed(any<SigaUnavailableException>()) }
     }
 
@@ -80,16 +80,16 @@ class RunDueSyncsTest : FunSpec({
         runDueSyncs(concurrency = 2).use { run ->
             run(SyncScope.Latest) shouldBe 2
             slowStarted.await(5, TimeUnit.SECONDS)
-            verify(timeout = 5_000) { queue.completed(bia.id, any()) }
+            verify(timeout = 5_000) { queue.completed(bia.id, any(), any()) }
 
             run(SyncScope.Latest) shouldBe 1
 
-            verify(timeout = 5_000) { queue.completed(caio.id, any()) }
-            verify(exactly = 0) { queue.completed(ana.id, any()) }
+            verify(timeout = 5_000) { queue.completed(caio.id, any(), any()) }
+            verify(exactly = 0) { queue.completed(ana.id, any(), any()) }
             releaseSlow.countDown()
         }
 
-        verify { queue.completed(ana.id, any()) }
+        verify { queue.completed(ana.id, any(), any()) }
     }
 
     test("claims nothing while every slot is busy") {

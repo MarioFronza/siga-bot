@@ -10,11 +10,21 @@ interface SyncQueue {
 
     fun claimDue(now: Instant, limit: Int, lease: Duration): List<SyncJob>
 
-    fun completed(userId: UserId, nextRunAt: Instant)
+    fun completed(userId: UserId, syncedAt: Instant, nextRunAt: Instant)
 
     fun failed(userId: UserId, error: String, retryAt: Instant)
 
     fun countDue(now: Instant): Long
+
+    fun statusOf(userId: UserId, now: Instant): SyncStatus?
 }
 
 data class SyncJob(val userId: UserId, val attempts: Int)
+
+data class SyncStatus(
+    val lastSyncedAt: Instant?,
+    val nextRunAt: Instant,
+    val running: Boolean,
+    val attempts: Int,
+    val lastError: String?,
+)

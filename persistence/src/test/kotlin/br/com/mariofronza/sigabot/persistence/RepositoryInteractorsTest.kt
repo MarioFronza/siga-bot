@@ -119,6 +119,19 @@ class RepositoryInteractorsTest : FunSpec() {
             users.findAllActive().map { it.id } shouldBe listOf(active.id)
         }
 
+        test("searches users by part of the email or name, ignoring case, a page at a time") {
+            users.save(newUser(digest = byteArrayOf(1), email = "ana@test.com").rename("Ana Souza"))
+            users.save(newUser(digest = byteArrayOf(2), email = "bia@test.com").rename("Beatriz Anaya"))
+            users.save(newUser(digest = byteArrayOf(3), email = "caio@test.com").rename("Caio Lima"))
+
+            val page = users.search("ANA", PageRequest(0, 1))
+
+            page.items.map { it.fullName } shouldBe listOf("Ana Souza")
+            page.totalItems shouldBe 2
+            users.search("caio@", PageRequest(0, 10)).items.map { it.fullName } shouldBe listOf("Caio Lima")
+            users.search("100%", PageRequest(0, 10)).totalItems shouldBe 0
+        }
+
         test("finds an academic account by its login digest within the institution") {
             newUser(digest = byteArrayOf(9, 9, 9))
 

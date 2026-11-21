@@ -7,6 +7,7 @@ import java.time.Duration
 import jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod.GET
 import org.springframework.http.HttpMethod.POST
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.ProviderManager
@@ -50,6 +51,7 @@ class SecurityConfig(
                     .requestMatchers("/actuator/health/**", "/actuator/prometheus", "/error", "/api/*/openapi.json").permitAll()
                     .requestMatchers("/api/*/me/terms/**", "/api/*/me/syncs").hasAuthority("STUDENT")
                     .requestMatchers(POST, "/api/*/notifications", "/api/*/users/*/notifications").hasAuthority("ADMIN")
+                    .requestMatchers(GET, "/api/*/users").hasAuthority("ADMIN")
                     .anyRequest().authenticated()
             }
             .exceptionHandling { it.authenticationEntryPoint { _, response, _ -> response.sendError(SC_UNAUTHORIZED) } }

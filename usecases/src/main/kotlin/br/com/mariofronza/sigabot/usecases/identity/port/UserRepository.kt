@@ -4,6 +4,8 @@ import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.entity.user.UserId
+import br.com.mariofronza.sigabot.usecases.shared.Page
+import br.com.mariofronza.sigabot.usecases.shared.PageRequest
 
 interface UserRepository {
 
@@ -12,6 +14,8 @@ interface UserRepository {
     fun findById(id: UserId): User?
 
     fun findByEmail(email: Email): User?
+
+    fun search(query: String, request: PageRequest): Page<User>
 
     fun existsByLoginDigest(institution: InstitutionCode, loginDigest: ByteArray): Boolean
 

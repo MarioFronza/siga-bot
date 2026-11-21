@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.extraction.apisteps
 
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaCredentialRejectedException
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaLayoutChangedException
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.extraction.apisteps.StepResponse.StepSuccess
@@ -27,6 +28,15 @@ abstract class Step {
             val errorMessage = errorBody.toString()
             StepError(errorMessage)
         }
+    }
+
+    fun <T> Response<T>.rejectWhenSentBackToLogin(sessionCookies: Int): Response<T> {
+        val response = body()
+        if (!isSuccessful || response !is ResponseBody) return this
+        val redirect = Jsoup.parse(response.stringNotClose()).getElementsByTag("redirect").attr("url")
+        val openedSession = headers().values("Set-Cookie").size >= sessionCookies
+        if (!openedSession && redirect.substringBefore("?").endsWith(LOGIN_PAGE)) throw SigaCredentialRejectedException()
+        return this
     }
 
     fun <T> Response<T>.updateViewState(extractorContext: ExtractorContext): Response<T> {
@@ -92,5 +102,6 @@ abstract class Step {
 
     companion object {
         const val BASE_URL = "https://siga.udesc.br/"
+        private const val LOGIN_PAGE = "sigaSecurityG5/login.jsf"
     }
 }

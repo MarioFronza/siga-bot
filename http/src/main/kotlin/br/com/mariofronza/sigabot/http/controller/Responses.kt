@@ -3,13 +3,14 @@ package br.com.mariofronza.sigabot.http.controller
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.notification.Notification
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
 import java.time.Instant
 import java.util.UUID
 
-data class UserResponse(val id: UUID, val email: String, val fullName: String) {
+data class UserResponse(val id: UUID, val email: String, val fullName: String, val roles: Set<Role>) {
     companion object {
-        fun from(user: User) = UserResponse(id = user.id.value, email = user.email.value, fullName = user.fullName)
+        fun from(user: User) = UserResponse(id = user.id.value, email = user.email.value, fullName = user.fullName, roles = user.roles)
     }
 }
 

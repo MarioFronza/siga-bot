@@ -146,10 +146,12 @@ class ApiTest : FunSpec() {
 
         test("rejects an invalid sign up as a problem") {
             mockMvc.post("/api/v1/users") {
-                json("""{"email":"not-an-email","password":"","sigaCredential":{"cpf":"000","password":"siga"}}""")
+                json("""{"email":"not-an-email","password":"","sigaCredential":{"cpf":"","password":"siga"}}""")
             }.andExpect {
                 status { isBadRequest() }
                 content { contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON) }
+                jsonPath("$.errors[*].field") { value(containsInAnyOrder("email", "password", "sigaCredential.cpf")) }
+                jsonPath("$.errors[0].message") { isNotEmpty() }
             }
         }
 

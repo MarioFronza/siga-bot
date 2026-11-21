@@ -17,10 +17,27 @@ import org.springframework.http.ProblemDetail
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatusCode
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.context.request.WebRequest
 import java.net.URI
 
 @RestControllerAdvice
 class ApiExceptionHandler : ResponseEntityExceptionHandler() {
+
+    data class InvalidField(val field: String, val message: String?)
+
+    override fun handleMethodArgumentNotValid(
+        ex: MethodArgumentNotValidException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        ex.body.setProperty("errors", ex.bindingResult.fieldErrors.map { InvalidField(it.field, it.defaultMessage) })
+        return super.handleMethodArgumentNotValid(ex, headers, status, request)
+    }
 
     @ExceptionHandler(EmailAlreadyRegisteredException::class)
     fun emailTaken(e: EmailAlreadyRegisteredException) = conflict(e, "email-already-registered", field = "email")

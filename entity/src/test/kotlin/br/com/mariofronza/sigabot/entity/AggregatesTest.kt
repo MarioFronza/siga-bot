@@ -32,13 +32,30 @@ class AggregatesTest : FunSpec({
         courseLoad = 72,
     )
 
-    fun outcome(grade: Double, absences: Int = 0) =
-        SemesterOutcome(grade = Grade(grade), absences = absences, attendance = Attendance(100.0), result = "Aprovado")
+    fun outcome(grade: Double?, absences: Int = 0) =
+        SemesterOutcome(grade = grade?.let(::Grade), absences = absences, attendance = Attendance(100.0), result = "Aprovado")
 
     test("starts an enrollment without announcing the grade it was found with") {
         val recorded = Enrollment.record(student, offering, existing = null, outcome = outcome(8.0))
 
         recorded.enrollment.grade shouldBe Grade(8.0)
+        recorded.events.shouldBeEmpty()
+    }
+
+    test("announces the first grade of a subject in progress") {
+        val existing = Enrollment.record(student, offering, existing = null, outcome = outcome(null)).enrollment
+
+        val recorded = Enrollment.record(student, offering, existing, outcome(9.5))
+
+        recorded.events shouldContainExactly listOf(GradePosted(student, offering, Grade(9.5)))
+    }
+
+    test("does not announce a grade that was taken down") {
+        val existing = Enrollment.record(student, offering, existing = null, outcome = outcome(9.5)).enrollment
+
+        val recorded = Enrollment.record(student, offering, existing, outcome(null))
+
+        recorded.enrollment.grade shouldBe null
         recorded.events.shouldBeEmpty()
     }
 

@@ -49,22 +49,14 @@ class SemesterResultsParser {
     private fun extractSemesterResultsData(subjectRow: Element): SemesterResult {
         val subjectName = subjectRow.child(0).text()
         val groupName = subjectRow.child(1).text()
-        val finalGrade = try {
-            subjectRow.child(2).text().replace(",", ".").toDouble()
-        } catch (e: Exception) {
-            0.0
-        }
+        val finalGrade = subjectRow.child(2).text().replace(",", ".").toDoubleOrNull()
         val courseLoad = subjectRow.child(5).text().toInt()
         val absencesCount = try {
             subjectRow.child(7).text().toInt()
         } catch (e: Exception) {
             0
         }
-        val attendancePercentage = try {
-            subjectRow.child(8).text().replace(",", ".").toDouble()
-        } catch (e: Exception) {
-            0.0
-        }
+        val attendancePercentage = subjectRow.child(8).text().replace(",", ".").toDoubleOrNull()
         val result = subjectRow.child(9).text()
         return SemesterResult(
             subjectName = subjectName,
@@ -91,10 +83,10 @@ class SemesterResultsParser {
     data class SemesterResult(
         val subjectName: String,
         val groupName: String,
-        val finalGrade: Double,
+        val finalGrade: Double?,
         val courseLoad: Int,
         val absencesCount: Int,
-        val attendancePercentage: Double,
+        val attendancePercentage: Double?,
         val result: String,
     ) {
         fun toSemesterResultOutput() = SemesterResultOutput(

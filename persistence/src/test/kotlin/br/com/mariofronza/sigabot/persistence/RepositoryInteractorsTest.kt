@@ -19,6 +19,7 @@ import br.com.mariofronza.sigabot.persistence.notification.JooqNotificationRepos
 import br.com.mariofronza.sigabot.persistence.user.JooqUserRepository
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.jooq.DSLContext
@@ -183,6 +184,15 @@ class RepositoryInteractorsTest : FunSpec() {
 
             enrollments.find(user.id, offering()).shouldNotBeNull().grade shouldBe Grade(9.75)
             dsl.fetchCount(ENROLLMENTS) shouldBe 1
+        }
+
+        test("keeps the grade and attendance of a subject in progress empty") {
+            val user = newUser()
+            enrollments.save(Enrollment(user.id, offering(), grade = null, absences = 0, attendance = null, result = "Cursando"))
+
+            val loaded = enrollments.find(user.id, offering()).shouldNotBeNull()
+            loaded.grade.shouldBeNull()
+            loaded.attendance.shouldBeNull()
         }
 
         test("lists the enrollments of a term with their offering") {

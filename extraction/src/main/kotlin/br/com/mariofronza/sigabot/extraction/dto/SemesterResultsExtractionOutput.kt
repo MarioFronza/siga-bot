@@ -14,9 +14,9 @@ data class SemesterResultPeriod(
 data class SemesterResultOutput(
     val subjectName: String,
     val groupName: String,
-    val finalGrade: Double,
+    val finalGrade: Double?,
     val courseLoad: Int,
     val absencesCount: Int,
-    val attendancePercentage: Double,
+    val attendancePercentage: Double?,
     val result: String,
 )

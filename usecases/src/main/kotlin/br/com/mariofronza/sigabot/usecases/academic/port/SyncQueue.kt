@@ -16,6 +16,8 @@ interface SyncQueue {
 
     fun failed(userId: UserId, reason: SyncFailureReason, retryAt: Instant)
 
+    fun credentialRejected(userId: UserId)
+
     fun countDue(now: Instant): Long
 
     fun statusOf(userId: UserId, now: Instant): SyncStatus?

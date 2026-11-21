@@ -65,7 +65,10 @@ class RunDueSyncs(
         } catch (e: Exception) {
             logger.warn("Sync failed for user {} (attempt {})", job.userId, job.attempts + 1, e)
             observer.failed(e)
-            queue.failed(job.userId, SyncFailureReason.of(e), clock.instant().plus(retryDelay(job.attempts + 1)))
+            when (val reason = SyncFailureReason.of(e)) {
+                SyncFailureReason.INVALID_CREDENTIAL -> queue.credentialRejected(job.userId)
+                else -> queue.failed(job.userId, reason, clock.instant().plus(retryDelay(job.attempts + 1)))
+            }
         }
     }
 

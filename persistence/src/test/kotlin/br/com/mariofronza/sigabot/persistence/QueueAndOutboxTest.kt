@@ -144,6 +144,25 @@ class QueueAndOutboxTest : FunSpec() {
             queue.statusOf(bia.id, now)?.pending shouldBe false
         }
 
+        test("pauses a student whose credential was rejected until the job is enqueued again") {
+            val ana = student("ana")
+            queue.enqueue(ana.id, now)
+            queue.claimDue(now, 10, lease)
+
+            queue.credentialRejected(ana.id)
+
+            queue.claimDue(now.plus(Duration.ofDays(1)), 10, lease).shouldBeEmpty()
+            queue.countDue(now.plus(Duration.ofDays(1))) shouldBe 0
+            queue.request(ana.id, SyncScope.Everything, now)
+            queue.statusOf(ana.id, now)?.pending shouldBe false
+            queue.statusOf(ana.id, now)?.lastErrorReason shouldBe SyncFailureReason.INVALID_CREDENTIAL
+
+            queue.enqueue(ana.id, now.plusSeconds(60))
+
+            queue.claimDue(now.plusSeconds(60), 10, lease) shouldBe listOf(SyncJob(ana.id, 0))
+            queue.statusOf(ana.id, now.plusSeconds(60))?.lastErrorReason shouldBe null
+        }
+
         test("drops a request whose sync failed and retries on the regular scope") {
             val ana = student("ana")
             queue.request(ana.id, SyncScope.Everything, now)

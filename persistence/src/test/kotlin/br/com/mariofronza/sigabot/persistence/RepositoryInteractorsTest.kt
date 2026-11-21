@@ -6,6 +6,7 @@ import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.enrollment.Grade
 import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Email
@@ -154,19 +155,31 @@ class RepositoryInteractorsTest : FunSpec() {
 
         test("stores the notification message") {
             val user = newUser()
-            notifications.save(Notification(recipient = user.id, message = "Nova nota em Banco de Dados"))
+            notifications.save(Notification(recipient = user.id, message = "Nova nota em Banco de Dados", kind = NotificationKind.GRADE_POSTED))
 
-            notifications.findByRecipient(user.id, PageRequest(0, 20)).items.single().message shouldBe "Nova nota em Banco de Dados"
+            val stored = notifications.findByRecipient(user.id, PageRequest(0, 20)).items.single()
+            stored.message shouldBe "Nova nota em Banco de Dados"
+            stored.kind shouldBe NotificationKind.GRADE_POSTED
         }
 
         test("pages a user's notifications newest first") {
             val user = newUser()
-            listOf("primeira", "segunda", "terceira").forEach { notifications.save(Notification(recipient = user.id, message = it)) }
+            listOf("primeira", "segunda", "terceira").forEach { notifications.save(Notification(recipient = user.id, message = it, kind = NotificationKind.ANNOUNCEMENT)) }
 
             val page = notifications.findByRecipient(user.id, PageRequest(0, 2))
 
             page.items.map { it.message } shouldBe listOf("terceira", "segunda")
             page.totalItems shouldBe 3
+        }
+
+        test("keeps an announcement for every active user only") {
+            val ana = newUser()
+            val gone = users.save(newUser(digest = byteArrayOf(7), email = "gone@test.com").copy(isActive = false))
+
+            notifications.saveForEveryActiveUser("As notas saíram", NotificationKind.ANNOUNCEMENT)
+
+            notifications.findByRecipient(ana.id, PageRequest(0, 20)).items.single().kind shouldBe NotificationKind.ANNOUNCEMENT
+            notifications.findByRecipient(gone.id, PageRequest(0, 20)).totalItems shouldBe 0
         }
 
         test("lists the academic periods a user is enrolled in, newest first") {

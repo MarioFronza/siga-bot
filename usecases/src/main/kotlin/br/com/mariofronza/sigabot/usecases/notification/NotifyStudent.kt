@@ -1,6 +1,7 @@
 package br.com.mariofronza.sigabot.usecases.notification
 
 import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.entity.user.UserId
 import br.com.mariofronza.sigabot.entity.user.UserNotFoundException
 import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
@@ -19,7 +20,7 @@ class NotifyStudent(
         val student = users.findById(recipient) ?: throw UserNotFoundException(recipient)
         return transaction.inTransaction {
             outbox.add(student.id, message)
-            notifications.save(Notification(recipient = student.id, message = message))
+            notifications.save(Notification(recipient = student.id, message = message, kind = NotificationKind.ANNOUNCEMENT))
         }
     }
 }

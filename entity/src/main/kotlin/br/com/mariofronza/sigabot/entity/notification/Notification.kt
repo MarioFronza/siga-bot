@@ -7,5 +7,6 @@ data class Notification(
     val id: Long? = null,
     val recipient: UserId,
     val message: String,
+    val kind: NotificationKind,
     val createdAt: Instant? = null,
 )

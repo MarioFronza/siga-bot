@@ -7,6 +7,7 @@ import br.com.mariofronza.sigabot.usecases.identity.RefreshSession
 import br.com.mariofronza.sigabot.usecases.identity.OpenSession
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
 import br.com.mariofronza.sigabot.usecases.academic.SyncStudentGrades
@@ -336,12 +337,13 @@ class ApiTest : FunSpec() {
             val user = signedIn(Role.STUDENT)
             val createdAt = Instant.parse("2026-11-20T12:00:00Z")
             every { listNotifications(user.id, PageRequest(1, 5)) } returns
-                Page(listOf(Notification(7, user.id, "Nova nota", createdAt)), PageRequest(1, 5), 6)
+                Page(listOf(Notification(7, user.id, "Nova nota", NotificationKind.GRADE_POSTED, createdAt)), PageRequest(1, 5), 6)
 
             mockMvc.get("/api/v1/me/notifications?page=1&size=5") { bearer(user) }.andExpect {
                 status { isOk() }
                 jsonPath("$.content[0].id") { value(7) }
                 jsonPath("$.content[0].message") { value("Nova nota") }
+                jsonPath("$.content[0].kind") { value("GRADE_POSTED") }
                 jsonPath("$.content[0].createdAt") { value("2026-11-20T12:00:00Z") }
                 jsonPath("$.page.totalElements") { value(6) }
             }
@@ -376,7 +378,7 @@ class ApiTest : FunSpec() {
         test("lets admins notify one user") {
             val user = signedIn(Role.ADMIN)
             every { notifyStudent(UserId(externalId), "Oi") } returns
-                Notification(7, UserId(externalId), "Oi", Instant.parse("2026-11-20T12:00:00Z"))
+                Notification(7, UserId(externalId), "Oi", NotificationKind.ANNOUNCEMENT, Instant.parse("2026-11-20T12:00:00Z"))
 
             mockMvc.post("/api/v1/users/$externalId/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect {

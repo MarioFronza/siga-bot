@@ -2,6 +2,7 @@ package br.com.mariofronza.sigabot.http.controller
 
 import br.com.mariofronza.sigabot.entity.enrollment.Enrollment
 import br.com.mariofronza.sigabot.entity.notification.Notification
+import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
@@ -42,11 +43,12 @@ data class EnrollmentResponse(
     }
 }
 
-data class NotificationResponse(val id: Long, val message: String, val createdAt: Instant) {
+data class NotificationResponse(val id: Long, val message: String, val kind: NotificationKind, val createdAt: Instant) {
     companion object {
         fun from(notification: Notification) = NotificationResponse(
             id = checkNotNull(notification.id) { "Notification has no id until it is saved" },
             message = notification.message,
+            kind = notification.kind,
             createdAt = checkNotNull(notification.createdAt) { "Notification has no creation time until it is saved" },
         )
     }

@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.3.0](https://github.com/MarioFronza/siga-bot/compare/v3.2.0...v3.3.0) (2026-11-21)
+
+
+### Features
+
+* detect a login SIGA rejects ([#103](https://github.com/MarioFronza/siga-bot/issues/103)) ([19fbe0e](https://github.com/MarioFronza/siga-bot/commit/19fbe0ee7293ac35bfced27f112660669f232931))
+* pause syncing when SIGA rejects the credential ([#99](https://github.com/MarioFronza/siga-bot/issues/99)) ([27d2890](https://github.com/MarioFronza/siga-bot/commit/27d28906c31378ab5c53d8bbd26f0f491afd500a))
+* rate limit the routes that trigger SIGA logins ([#100](https://github.com/MarioFronza/siga-bot/issues/100)) ([251a433](https://github.com/MarioFronza/siga-bot/commit/251a4332d7adf4d784d40385bff28b91e2119b6a))
+* tell why a sync failed instead of exposing the raw error ([#98](https://github.com/MarioFronza/siga-bot/issues/98)) ([5c246bc](https://github.com/MarioFronza/siga-bot/commit/5c246bce88a7d90a30012b0144f9ed6a3a9eef67))
+
 ## [3.2.0](https://github.com/MarioFronza/siga-bot/compare/v3.1.1...v3.2.0) (2026-11-21)
 
 

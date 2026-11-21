@@ -53,6 +53,7 @@ import org.springframework.test.web.servlet.MockHttpServletRequestDsl
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.hamcrest.Matchers.containsInAnyOrder
 import java.time.Instant
 import java.util.UUID
 
@@ -223,6 +224,15 @@ class ApiTest : FunSpec() {
                 jsonPath("$.id") { value(externalId.toString()) }
                 jsonPath("$.email") { value("ana@test.com") }
                 jsonPath("$.fullName") { value("Ana Souza") }
+            }
+        }
+
+        test("shows the roles of the signed in user") {
+            val user = signedIn(Role.STUDENT, Role.ADMIN)
+
+            mockMvc.get("/api/v1/me") { bearer(user) }.andExpect {
+                status { isOk() }
+                jsonPath("$.roles") { value(containsInAnyOrder("STUDENT", "ADMIN")) }
             }
         }
 

@@ -2,6 +2,7 @@ package br.com.mariofronza.sigabot.http.controller.notification
 
 import br.com.mariofronza.sigabot.entity.user.UserId
 import br.com.mariofronza.sigabot.http.controller.NotificationResponse
+import br.com.mariofronza.sigabot.http.controller.SentNotificationResponse
 import br.com.mariofronza.sigabot.http.security.UserDetailsImpl
 import br.com.mariofronza.sigabot.usecases.notification.BroadcastNotification
 import br.com.mariofronza.sigabot.usecases.notification.ListNotifications
@@ -50,6 +51,6 @@ class NotificationController(
 
     @PostMapping("/users/{id}/notifications")
     @ResponseStatus(CREATED)
-    fun notifyUser(@PathVariable id: UUID, @Valid @RequestBody request: NotificationRequest): NotificationResponse =
-        NotificationResponse.from(notifyStudent(UserId(id), request.message))
+    fun notifyUser(@PathVariable id: UUID, @Valid @RequestBody request: NotificationRequest): SentNotificationResponse =
+        SentNotificationResponse.from(notifyStudent(UserId(id), request.message))
 }

@@ -436,13 +436,17 @@ class ApiTest : FunSpec() {
 
         test("lets admins notify one user") {
             val user = signedIn(Role.ADMIN)
-            every { notifyStudent(UserId(externalId), "Oi") } returns
-                Notification(7, UserId(externalId), "Oi", NotificationKind.ANNOUNCEMENT, Instant.parse("2026-11-20T12:00:00Z"))
+            every { notifyStudent(UserId(externalId), "Oi") } returns NotifyStudent.Sent(
+                Notification(7, UserId(externalId), "Oi", NotificationKind.ANNOUNCEMENT, Instant.parse("2026-11-20T12:00:00Z")),
+                recipient = user,
+            )
 
             mockMvc.post("/api/v1/users/$externalId/notifications") { bearer(user); json("""{"message":"Oi"}""") }
                 .andExpect {
                     status { isCreated() }
                     jsonPath("$.id") { value(7) }
+                    jsonPath("$.recipient.id") { value(externalId.toString()) }
+                    jsonPath("$.recipient.fullName") { value("Ana Souza") }
                 }
         }
 

@@ -6,6 +6,7 @@ import br.com.mariofronza.sigabot.entity.notification.NotificationKind
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
 import br.com.mariofronza.sigabot.entity.user.Role
 import br.com.mariofronza.sigabot.entity.user.User
+import br.com.mariofronza.sigabot.usecases.notification.NotifyStudent
 import java.time.Instant
 import java.util.UUID
 
@@ -40,6 +41,22 @@ data class EnrollmentResponse(
             attendancePercentage = enrollment.attendance?.percentage,
             result = enrollment.result,
         )
+    }
+}
+
+data class SentNotificationResponse(
+    val id: Long,
+    val message: String,
+    val kind: NotificationKind,
+    val createdAt: Instant,
+    val recipient: Recipient,
+) {
+    data class Recipient(val id: UUID, val fullName: String)
+
+    companion object {
+        fun from(sent: NotifyStudent.Sent) = NotificationResponse.from(sent.notification).let {
+            SentNotificationResponse(it.id, it.message, it.kind, it.createdAt, Recipient(sent.recipient.id.value, sent.recipient.fullName))
+        }
     }
 }
 

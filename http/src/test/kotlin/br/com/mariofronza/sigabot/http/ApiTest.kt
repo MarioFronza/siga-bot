@@ -363,6 +363,16 @@ class ApiTest : FunSpec() {
             verify { broadcastNotification("Oi") }
         }
 
+        test("rejects a notification longer than 500 characters") {
+            val user = signedIn(Role.ADMIN)
+
+            mockMvc.post("/api/v1/notifications") { bearer(user); json("""{"message":"${"a".repeat(501)}"}""") }
+                .andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.errors[0].field") { value("message") }
+                }
+        }
+
         test("lets admins notify one user") {
             val user = signedIn(Role.ADMIN)
             every { notifyStudent(UserId(externalId), "Oi") } returns

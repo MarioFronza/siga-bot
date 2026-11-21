@@ -17,12 +17,22 @@ import org.springframework.http.ProblemDetail
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+import java.net.URI
 
 @RestControllerAdvice
 class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
-    @ExceptionHandler(EmailAlreadyRegisteredException::class, AcademicAccountAlreadyRegisteredException::class)
-    fun conflict(e: RuntimeException): ProblemDetail = ProblemDetail.forStatusAndDetail(CONFLICT, e.message)
+    @ExceptionHandler(EmailAlreadyRegisteredException::class)
+    fun emailTaken(e: EmailAlreadyRegisteredException) = conflict(e, "email-already-registered", field = "email")
+
+    @ExceptionHandler(AcademicAccountAlreadyRegisteredException::class)
+    fun credentialTaken(e: AcademicAccountAlreadyRegisteredException) = conflict(e, "siga-credential-already-registered", field = "cpf")
+
+    private fun conflict(e: RuntimeException, problem: String, field: String) =
+        ProblemDetail.forStatusAndDetail(CONFLICT, e.message).apply {
+            type = URI.create("urn:siga-bot:problem:$problem")
+            setProperty("field", field)
+        }
 
     @ExceptionHandler(UserNotFoundException::class)
     fun notFound(e: UserNotFoundException): ProblemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, e.message)

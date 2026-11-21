@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.1.1](https://github.com/MarioFronza/siga-bot/compare/v3.1.0...v3.1.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* treat a push OneSignal rejects as failed ([#60](https://github.com/MarioFronza/siga-bot/issues/60)) ([e3c4245](https://github.com/MarioFronza/siga-bot/commit/e3c42451acf10585f0fd85d9357dc80f3d77b49b))
+
+
+### Performance Improvements
+
+* bound SIGA and OneSignal calls with timeouts ([#65](https://github.com/MarioFronza/siga-bot/issues/65)) ([3649b19](https://github.com/MarioFronza/siga-bot/commit/3649b19dfacd8999971d6dc31fd368be28bd872a))
+* keep every sync slot busy instead of waiting for the slowest of a batch ([#63](https://github.com/MarioFronza/siga-bot/issues/63)) ([c669fbf](https://github.com/MarioFronza/siga-bot/commit/c669fbf481e702b99eda4fc48e47b2c8e691f35e))
+* run scheduled jobs and requests on virtual threads and size the JVM heap ([#61](https://github.com/MarioFronza/siga-bot/issues/61)) ([ae23e69](https://github.com/MarioFronza/siga-bot/commit/ae23e69603f62b75ea0bffc42063f959be4d8365))
+* write nothing when a sync finds nothing new ([#64](https://github.com/MarioFronza/siga-bot/issues/64)) ([10c7a7e](https://github.com/MarioFronza/siga-bot/commit/10c7a7e75937e614ae7e9d3353d0846ee3e359af))
+
 ## [3.1.0](https://github.com/MarioFronza/siga-bot/compare/v3.0.0...v3.1.0) (2026-11-20)
 
 

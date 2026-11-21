@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.2.0](https://github.com/MarioFronza/siga-bot/compare/v3.1.1...v3.2.0) (2026-11-21)
+
+
+### Features
+
+* expose the student's sync status ([#87](https://github.com/MarioFronza/siga-bot/issues/87)) ([4629b1a](https://github.com/MarioFronza/siga-bot/commit/4629b1ad7d905520c6260e6503355bf3c0cc0147))
+* expose the user's roles on /me ([#81](https://github.com/MarioFronza/siga-bot/issues/81)) ([2abc89a](https://github.com/MarioFronza/siga-bot/commit/2abc89ae9211233dad668c0f4d53f17f28708463))
+* let admins search students ([#89](https://github.com/MarioFronza/siga-bot/issues/89)) ([473f78a](https://github.com/MarioFronza/siga-bot/commit/473f78a2d4e2e6d6dc8873755294e04021e50f31))
+* let students update their SIGA credential ([#90](https://github.com/MarioFronza/siga-bot/issues/90)) ([945f7da](https://github.com/MarioFronza/siga-bot/commit/945f7dabfb305570adc85bb7980f2162c4dc3e4c))
+* list the invalid fields of a bad request ([#83](https://github.com/MarioFronza/siga-bot/issues/83)) ([b195567](https://github.com/MarioFronza/siga-bot/commit/b195567ace123c0fac85a414b824a3bfc466466c))
+* return the recipient of a direct notification ([#91](https://github.com/MarioFronza/siga-bot/issues/91)) ([d01f90c](https://github.com/MarioFronza/siga-bot/commit/d01f90c1099ac6fcc6292f0fd1134a8de3576518))
+* run requested syncs in the background ([#88](https://github.com/MarioFronza/siga-bot/issues/88)) ([b0dd465](https://github.com/MarioFronza/siga-bot/commit/b0dd465a4625fe20da111a8909f3d98e1d9ed3b0))
+* tell grade notifications from announcements ([#86](https://github.com/MarioFronza/siga-bot/issues/86)) ([df9ae96](https://github.com/MarioFronza/siga-bot/commit/df9ae96265b7fac44e7d045e3c4bb3cb97d87bb6))
+* tell rate-limited clients when to retry ([#84](https://github.com/MarioFronza/siga-bot/issues/84)) ([c9456de](https://github.com/MarioFronza/siga-bot/commit/c9456deb897f65f5a6bce6533a4976ada6699a1d))
+* tell which field a sign-up conflict is about ([#82](https://github.com/MarioFronza/siga-bot/issues/82)) ([05fe803](https://github.com/MarioFronza/siga-bot/commit/05fe803fda87fe749854ed2cbe16208bfbf0ec25))
+
+
+### Bug Fixes
+
+* cap notification messages at 500 characters ([#85](https://github.com/MarioFronza/siga-bot/issues/85)) ([05bbac4](https://github.com/MarioFronza/siga-bot/commit/05bbac4d61da5c443044fba779b888937f971577))
+* keep grades empty while a subject is in progress ([#80](https://github.com/MarioFronza/siga-bot/issues/80)) ([d2ba894](https://github.com/MarioFronza/siga-bot/commit/d2ba894150901cb9aee17c30917d4471cc947b96))
+
 ## [3.1.1](https://github.com/MarioFronza/siga-bot/compare/v3.1.0...v3.1.1) (2026-11-21)
 
 

@@ -89,8 +89,10 @@ To expose it over HTTPS, point a Cloudflare Tunnel route at `http://<host>:8080`
 Every student has a row in `sync_jobs` with the time of their next sync. Each instance keeps 8 sync slots. Every 5 seconds it claims as many due jobs as it has free slots, with `FOR UPDATE SKIP LOCKED` and a 10-minute lease, and syncs each one on a virtual thread. A slow SIGA answer holds only its own slot, and the others keep claiming work. Running several instances is safe, because a job claimed by one is invisible to the others until its lease ends.
 
 - A successful sync schedules the next one an hour later, which spreads the load across the hour instead of hitting SIGA at the top of it.
-- A failed sync retries after 5 minutes, doubling up to 6 hours, and keeps the error in `last_error`.
+- A failed sync retries after 5 minutes, doubling up to 6 hours, and keeps the reason in `last_error_reason`: `SIGA_UNAVAILABLE`, `SIGA_CHANGED` or `UNKNOWN`. The exception message goes to the logs only.
+- A rejected SIGA credential (`INVALID_CREDENTIAL`) does not retry, because repeated logins with a wrong password can lock the student's SIGA account. The job stays paused until the student sends a new credential with `PUT /api/v1/me/siga-credential`.
 - A new student is synced within a minute of signing up.
+- A sync the student asks for with `POST /api/v1/me/syncs` is stored on the same job with its scope and runs on the next poll, under the same slots and lease. A request made while that student's sync is running is kept for the next run.
 
 Pushes go through an outbox. New-grade and admin messages are written in the same transaction as the data they describe. Every 10 seconds each instance claims up to 50 pending pushes with `FOR UPDATE SKIP LOCKED` and a 5-minute lease, so two instances never send the same push. A failed push retries after 30 seconds, doubling up to an hour, for up to 10 attempts (about 4.5 hours). A OneSignal outage no longer loses pushes, and nothing is sent for data that was rolled back. Delivery is at least once: a crash between OneSignal accepting a push and marking it delivered sends it again.
 
@@ -113,15 +115,39 @@ docker exec -i <db-container> psql -U sigabot sigabot < siga-bot.sql
 
 ## Endpoints
 
-The API is versioned in the path, under `/api/v1`. A version the server does not serve answers `400`. Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes. Refresh tokens are opaque, stored only as a SHA-256 hash, and rotate on every refresh with a 30-day lifetime. Sign-up, login and refresh are each limited to 10 requests per minute per client address, and going over answers `429`. Behind a reverse proxy on a private network, the address comes from `X-Forwarded-For`.
+The API is versioned in the path, under `/api/v1`. A version the server does not serve answers `400`. Protected routes need `Authorization: Bearer <accessToken>`. Access tokens last 10 minutes. Refresh tokens are opaque, stored only as a SHA-256 hash, and rotate on every refresh with a 30-day lifetime. Sign-up, login, refresh, `POST /me/syncs` and `PUT /me/siga-credential` are each limited to 10 requests per minute per client address. Going over answers `429` with `Retry-After` in seconds. Behind a reverse proxy on a private network, the address comes from `X-Forwarded-For`.
 
 The OpenAPI contract is served at `GET /api/v1/openapi.json`. It covers every route except `POST /api/v1/sessions`, which Spring Security handles before MVC.
 
-Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `application/problem+json`:
+Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `application/problem+json`. A conflict says which field it is about:
 
 ```json
-{ "status": 409, "title": "Conflict", "detail": "User already exists", "instance": "/api/v1/users" }
+{
+  "type": "urn:siga-bot:problem:email-already-registered",
+  "status": 409,
+  "title": "Conflict",
+  "detail": "User already exists",
+  "instance": "/api/v1/users",
+  "field": "email"
+}
 ```
+
+The SIGA credential conflict uses `urn:siga-bot:problem:siga-credential-already-registered` and `"field": "cpf"`. An invalid body answers `400` with every failing field:
+
+```json
+{
+  "status": 400,
+  "title": "Bad Request",
+  "detail": "Invalid request content.",
+  "instance": "/api/v1/users",
+  "errors": [
+    { "field": "email", "message": "must be a well-formed email address" },
+    { "field": "sigaCredential.cpf", "message": "must not be blank" }
+  ]
+}
+```
+
+A rate-limited request answers `429` with `Retry-After: <seconds>` and a problem body.
 
 | Route | Access | Purpose |
 |---|---|---|
@@ -134,9 +160,12 @@ Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `ap
 | `GET /api/v1/me` | authenticated | the signed-in user |
 | `GET /api/v1/me/terms` | `STUDENT` | terms with grades, newest first |
 | `GET /api/v1/me/terms/{year}/{term}/enrollments` | `STUDENT` | stored grades of a term |
-| `POST /api/v1/me/syncs` | `STUDENT` | read SIGA now and store the grades |
+| `POST /api/v1/me/syncs` | `STUDENT` | ask for a sync, answered `202` |
+| `GET /api/v1/me/sync` | `STUDENT` | sync status |
+| `PUT /api/v1/me/siga-credential` | `STUDENT` | replace the SIGA credential |
 | `GET /api/v1/me/notifications` | authenticated | the user's notifications, paginated |
-| `POST /api/v1/notifications` | `ADMIN` | push a message to every device |
+| `GET /api/v1/users?query=` | `ADMIN` | search users by email or name, paginated |
+| `POST /api/v1/notifications` | `ADMIN` | push a message to every device and store it for every active user |
 | `POST /api/v1/users/{id}/notifications` | `ADMIN` | push a message to one user and store it |
 
 ### `POST /api/v1/users`
@@ -155,10 +184,10 @@ Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) and come as `ap
 Response `201` with `Location: /api/v1/me`:
 
 ```json
-{ "id": "01a1f973-13ad-7a5c-80df-bf421ada5df1", "email": "student@example.com", "fullName": "" }
+{ "id": "01a1f973-13ad-7a5c-80df-bf421ada5df1", "email": "student@example.com", "fullName": "", "roles": ["STUDENT"] }
 ```
 
-`id` is the public user id, a UUIDv7. The email is stored in lowercase, and a CPF can only be registered once, whatever its formatting. Both duplicates answer `409`, and an invalid body answers `400`. `fullName` stays empty until the first sync reads it from SIGA. `GET /api/v1/me` returns the same shape.
+`id` is the public user id, a UUIDv7. The email is stored in lowercase, and a CPF can only be registered once, whatever its formatting. Both duplicates answer `409` with the `field`, and an invalid body answers `400` with `errors`. `fullName` stays empty until the first sync reads it from SIGA. `GET /api/v1/me` returns the same shape, and `roles` tells the app whether to show admin features.
 
 ### `POST /api/v1/sessions`
 
@@ -200,25 +229,50 @@ Logs out. Same body as `/sessions/refresh`. It answers `204` and revokes every r
     "subject": "Banco de Dados",
     "classSection": "BAN01",
     "courseLoad": 72,
-    "finalGrade": 8.0,
+    "finalGrade": null,
     "absences": 0,
-    "attendancePercentage": 100.0,
-    "result": "Aprovado"
+    "attendancePercentage": null,
+    "result": "Cursando"
   }
 ]
 ```
 
+`finalGrade` and `attendancePercentage` are `null` while SIGA has no value yet, such as a subject in progress.
+
 ### `POST /api/v1/me/syncs`
 
-Logs into SIGA, stores the grades, and notifies about any new grade. Sync one term with `{ "year": 2026, "term": 1 }`, or every term SIGA has with `{ "scope": "full" }`. It answers `200` with the synced terms, in the same shape as `/me/terms`, and `400` when `year` or `term` is missing.
+Asks for a sync of one term with `{ "year": 2026, "term": 1 }`, or of every term SIGA has with `{ "scope": "full" }`. It answers `202` with `Location: /api/v1/me/sync` and no body, and `400` when `year` or `term` is missing. A worker runs it within seconds, stores the grades and notifies about any new grade. While the job is paused for a rejected credential, the request is ignored.
 
-### `GET /api/v1/me/notifications?page=0&size=20`
-
-Newest first. `size` defaults to 20 and is capped at 100.
+### `GET /api/v1/me/sync`
 
 ```json
 {
-  "content": [{ "id": 7, "message": "Grades are out", "createdAt": "2026-11-20T12:00:00Z" }],
+  "lastSyncedAt": "2026-11-20T12:00:00Z",
+  "nextRunAt": "2026-11-20T13:00:00Z",
+  "running": false,
+  "pending": false,
+  "attempts": 1,
+  "lastErrorReason": "SIGA_UNAVAILABLE"
+}
+```
+
+After `POST /me/syncs`, poll while `pending` or `running` is `true`. Then `lastSyncedAt` moved means success, and otherwise `lastErrorReason` tells why it failed: `INVALID_CREDENTIAL`, `SIGA_UNAVAILABLE`, `SIGA_CHANGED` or `UNKNOWN`. `INVALID_CREDENTIAL` means the job is paused until the credential is updated.
+
+### `PUT /api/v1/me/siga-credential`
+
+```json
+{ "cpf": "00000000000", "password": "new-siga-password" }
+```
+
+Replaces the stored SIGA credential, resumes a paused job and schedules a sync right away. It answers `204`, `409` with `"field": "cpf"` when another student registered that CPF, and `400` for a blank field.
+
+### `GET /api/v1/me/notifications?page=0&size=20`
+
+Newest first. `size` defaults to 20 and is capped at 100. `kind` is `GRADE_POSTED` for a new grade and `ANNOUNCEMENT` for an admin message.
+
+```json
+{
+  "content": [{ "id": 7, "message": "Ana, você possui uma nota nova da matéria Banco de Dados", "kind": "GRADE_POSTED", "createdAt": "2026-11-20T12:00:00Z" }],
   "page": { "size": 20, "number": 0, "totalElements": 1, "totalPages": 1 }
 }
 ```
@@ -229,4 +283,18 @@ Newest first. `size` defaults to 20 and is capped at 100.
 { "message": "Grades are out" }
 ```
 
-Broadcasting answers `202` with an empty body. Notifying one user, by public id, stores the notification and answers `201` with it, or `404` when the user does not exist.
+`message` is required and capped at 500 characters. Broadcasting answers `202` with an empty body. Notifying one user, by public id, stores the notification and answers `201` with it and its recipient, or `404` when the user does not exist:
+
+```json
+{
+  "id": 8,
+  "message": "Grades are out",
+  "kind": "ANNOUNCEMENT",
+  "createdAt": "2026-11-20T12:00:00Z",
+  "recipient": { "id": "01a1f973-13ad-7a5c-80df-bf421ada5df1", "fullName": "Ana Souza" }
+}
+```
+
+### `GET /api/v1/users?query=ana&page=0&size=20`
+
+Admins only. Matches part of the email or name, ignoring case, ordered by name. Same page shape as notifications, with users in the shape of `/me`.

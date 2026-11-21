@@ -49,7 +49,7 @@ class SecurityConfig(
             .authorizeHttpRequests {
                 it.requestMatchers(POST, "/api/*/users", "/api/*/sessions", "/api/*/sessions/refresh", "/api/*/sessions/revoke").permitAll()
                     .requestMatchers("/actuator/health/**", "/actuator/prometheus", "/error", "/api/*/openapi.json").permitAll()
-                    .requestMatchers("/api/*/me/terms/**", "/api/*/me/syncs").hasAuthority("STUDENT")
+                    .requestMatchers("/api/*/me/terms/**", "/api/*/me/syncs", "/api/*/me/sync", "/api/*/me/siga-credential").hasAuthority("STUDENT")
                     .requestMatchers(POST, "/api/*/notifications", "/api/*/users/*/notifications").hasAuthority("ADMIN")
                     .requestMatchers(GET, "/api/*/users").hasAuthority("ADMIN")
                     .anyRequest().authenticated()

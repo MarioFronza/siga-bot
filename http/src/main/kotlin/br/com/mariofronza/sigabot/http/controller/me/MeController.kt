@@ -9,6 +9,11 @@ import br.com.mariofronza.sigabot.usecases.academic.ListEnrolledPeriods
 import br.com.mariofronza.sigabot.usecases.academic.ListPeriodEnrollments
 import br.com.mariofronza.sigabot.usecases.academic.ShowSyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.RequestSync
+import br.com.mariofronza.sigabot.usecases.identity.UpdateSigaCredential
+import jakarta.validation.Valid
+import org.springframework.http.HttpStatus.NO_CONTENT
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.ResponseStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import org.springframework.http.HttpStatus.BAD_REQUEST
@@ -31,6 +36,7 @@ class MeController(
     private val listPeriodEnrollments: ListPeriodEnrollments,
     private val requestSync: RequestSync,
     private val showSyncStatus: ShowSyncStatus,
+    private val updateSigaCredential: UpdateSigaCredential,
 ) {
 
     @GetMapping
@@ -46,6 +52,12 @@ class MeController(
         @PathVariable year: Int,
         @PathVariable term: Int,
     ): List<EnrollmentResponse> = listPeriodEnrollments(principal.toUser().id, AcademicPeriod(year, term)).map(EnrollmentResponse::from)
+
+    @PutMapping("/siga-credential")
+    @ResponseStatus(NO_CONTENT)
+    fun updateCredential(@AuthenticationPrincipal principal: UserDetailsImpl, @Valid @RequestBody request: SigaCredentialRequest) {
+        updateSigaCredential(principal.toUser(), request.toCommand())
+    }
 
     @GetMapping("/sync")
     fun syncStatus(@AuthenticationPrincipal principal: UserDetailsImpl): SyncStatus =

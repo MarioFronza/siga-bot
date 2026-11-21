@@ -15,6 +15,7 @@ import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
 import br.com.mariofronza.sigabot.usecases.identity.SearchUsers
+import br.com.mariofronza.sigabot.usecases.identity.UpdateSigaCredential
 import br.com.mariofronza.sigabot.usecases.notification.BroadcastNotification
 import br.com.mariofronza.sigabot.usecases.notification.ListNotifications
 import br.com.mariofronza.sigabot.usecases.notification.NotifyStudent
@@ -57,6 +58,7 @@ import org.springframework.test.web.servlet.MockHttpServletRequestDsl
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import org.hamcrest.Matchers.containsInAnyOrder
 import java.time.Instant
 import java.util.UUID
@@ -71,6 +73,7 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var userDetailsService: UserDetailsService
     @Autowired lateinit var registerStudent: RegisterStudent
     @Autowired lateinit var searchUsers: SearchUsers
+    @Autowired lateinit var updateSigaCredential: UpdateSigaCredential
     @Autowired lateinit var requestSync: RequestSync
     @Autowired lateinit var showSyncStatus: ShowSyncStatus
     @Autowired lateinit var listEnrolledPeriods: ListEnrolledPeriods
@@ -87,6 +90,7 @@ class ApiTest : FunSpec() {
         @Bean fun userDetailsService(): UserDetailsService = mockk()
         @Bean fun registerStudent(): RegisterStudent = mockk()
         @Bean fun searchUsers(): SearchUsers = mockk()
+        @Bean fun updateSigaCredential(): UpdateSigaCredential = mockk(relaxed = true)
         @Bean fun requestSync(): RequestSync = mockk(relaxed = true)
         @Bean fun showSyncStatus(): ShowSyncStatus = mockk()
         @Bean fun listEnrolledPeriods(): ListEnrolledPeriods = mockk()
@@ -325,6 +329,26 @@ class ApiTest : FunSpec() {
                 .andExpect {
                     status { isBadRequest() }
                     content { contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON) }
+                }
+        }
+
+        test("updates the SIGA credential of the signed in student") {
+            val user = signedIn(Role.STUDENT)
+
+            mockMvc.put("/api/v1/me/siga-credential") { bearer(user); json("""{"cpf":"111.111.111-11","password":"new"}""") }
+                .andExpect { status { isNoContent() } }
+
+            verify { updateSigaCredential(user, UpdateSigaCredential.Command("111.111.111-11", "new")) }
+        }
+
+        test("answers 409 on the cpf field when the new SIGA credential belongs to someone else") {
+            val user = signedIn(Role.STUDENT)
+            every { updateSigaCredential(user, any()) } throws AcademicAccountAlreadyRegisteredException()
+
+            mockMvc.put("/api/v1/me/siga-credential") { bearer(user); json("""{"cpf":"222","password":"new"}""") }
+                .andExpect {
+                    status { isConflict() }
+                    jsonPath("$.field") { value("cpf") }
                 }
         }
 

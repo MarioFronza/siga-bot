@@ -77,6 +77,15 @@ class AggregatesTest : FunSpec({
         recorded.events.shouldBeEmpty()
     }
 
+    test("replaces the academic account of the same institution") {
+        val old = AcademicAccount(InstitutionCode.UDESC, "old", byteArrayOf(1), "old-password")
+        val new = AcademicAccount(InstitutionCode.UDESC, "new", byteArrayOf(2), "new-password")
+
+        val user = User.registerStudent(Email.of("ana@test.com"), "hash", old).replaceAccount(new)
+
+        user.academicAccounts shouldBe listOf(new)
+    }
+
     test("registers a student with the student role and one academic account") {
         val account = AcademicAccount(InstitutionCode.UDESC, "login", byteArrayOf(1), "password")
 

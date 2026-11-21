@@ -22,6 +22,8 @@ import br.com.mariofronza.sigabot.usecases.shared.PageRequest
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.currentOffsetDateTime
+import org.jooq.impl.DSL.excluded
+import org.jooq.impl.DSL.row
 import org.jooq.impl.DSL.multiset
 import org.jooq.impl.DSL.select
 import org.springframework.stereotype.Component
@@ -111,6 +113,32 @@ class JooqUserRepository(
             .execute()
         dsl.deleteFrom(USER_ROLES).where(USER_ROLES.USER_ID.eq(userKey(user.id))).execute()
         insertRoles(userKey(user.id), user.roles)
+        saveAccounts(userKey(user.id), user.academicAccounts)
+    }
+
+    private fun saveAccounts(userId: Field<Long?>, accounts: List<AcademicAccount>) {
+        accounts.forEach {
+            dsl.insertInto(ACADEMIC_ACCOUNTS)
+                .set(ACADEMIC_ACCOUNTS.USER_ID, userId)
+                .set(ACADEMIC_ACCOUNTS.INSTITUTION_ID, institutionKey(it.institution))
+                .set(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT, it.loginCiphertext)
+                .set(ACADEMIC_ACCOUNTS.LOGIN_DIGEST, it.loginDigest)
+                .set(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT, it.passwordCiphertext)
+                .onConflict(ACADEMIC_ACCOUNTS.USER_ID, ACADEMIC_ACCOUNTS.INSTITUTION_ID)
+                .doUpdate()
+                .set(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT, excluded(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT))
+                .set(ACADEMIC_ACCOUNTS.LOGIN_DIGEST, excluded(ACADEMIC_ACCOUNTS.LOGIN_DIGEST))
+                .set(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT, excluded(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT))
+                .set(ACADEMIC_ACCOUNTS.UPDATED_AT, currentOffsetDateTime())
+                .where(
+                    row(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT, ACADEMIC_ACCOUNTS.LOGIN_DIGEST, ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT).isDistinctFrom(
+                        excluded(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT),
+                        excluded(ACADEMIC_ACCOUNTS.LOGIN_DIGEST),
+                        excluded(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT),
+                    ),
+                )
+                .execute()
+        }
     }
 
     private fun insertRoles(userId: Field<Long?>, roles: Set<Role>) {
@@ -132,14 +160,6 @@ class JooqUserRepository(
             .returning(USERS.ID)
             .fetchSingle { it.id }
         insertRoles(value<Long?>(id), user.roles)
-        user.academicAccounts.forEach {
-            dsl.insertInto(ACADEMIC_ACCOUNTS)
-                .set(ACADEMIC_ACCOUNTS.USER_ID, id)
-                .set(ACADEMIC_ACCOUNTS.INSTITUTION_ID, institutionKey(it.institution))
-                .set(ACADEMIC_ACCOUNTS.LOGIN_CIPHERTEXT, it.loginCiphertext)
-                .set(ACADEMIC_ACCOUNTS.LOGIN_DIGEST, it.loginDigest)
-                .set(ACADEMIC_ACCOUNTS.PASSWORD_CIPHERTEXT, it.passwordCiphertext)
-                .execute()
-        }
+        saveAccounts(value<Long?>(id), user.academicAccounts)
     }
 }

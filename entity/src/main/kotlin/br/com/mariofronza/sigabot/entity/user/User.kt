@@ -21,6 +21,9 @@ data class User(
 
     fun grant(role: Role) = copy(roles = roles + role)
 
+    fun replaceAccount(account: AcademicAccount) =
+        copy(academicAccounts = academicAccounts.filterNot { it.institution == account.institution } + account)
+
     companion object {
         fun registerStudent(email: Email, passwordHash: String, account: AcademicAccount) = User(
             isActive = true,

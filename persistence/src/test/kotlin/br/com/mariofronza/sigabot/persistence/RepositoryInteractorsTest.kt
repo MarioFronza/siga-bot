@@ -112,6 +112,16 @@ class RepositoryInteractorsTest : FunSpec() {
             loaded.isActive shouldBe false
         }
 
+        test("updates the academic account of an existing user") {
+            val saved = newUser(digest = byteArrayOf(1))
+            users.save(saved.replaceAccount(AcademicAccount(udesc, "new-login", byteArrayOf(2), "new-password")))
+
+            val account = users.findById(saved.id).shouldNotBeNull().academicAccounts.single()
+            account.loginCiphertext shouldBe "new-login"
+            account.loginDigest shouldBe byteArrayOf(2)
+            account.passwordCiphertext shouldBe "new-password"
+        }
+
         test("lists only active users") {
             val active = newUser()
             users.save(newUser(digest = byteArrayOf(7), email = "gone@test.com").copy(isActive = false))

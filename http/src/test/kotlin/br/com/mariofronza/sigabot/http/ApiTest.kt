@@ -14,6 +14,7 @@ import br.com.mariofronza.sigabot.usecases.academic.RequestSync
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
+import br.com.mariofronza.sigabot.usecases.identity.SearchUsers
 import br.com.mariofronza.sigabot.usecases.notification.BroadcastNotification
 import br.com.mariofronza.sigabot.usecases.notification.ListNotifications
 import br.com.mariofronza.sigabot.usecases.notification.NotifyStudent
@@ -69,6 +70,7 @@ class ApiTest : FunSpec() {
     @Autowired lateinit var jwtUtil: JWTUtil
     @Autowired lateinit var userDetailsService: UserDetailsService
     @Autowired lateinit var registerStudent: RegisterStudent
+    @Autowired lateinit var searchUsers: SearchUsers
     @Autowired lateinit var requestSync: RequestSync
     @Autowired lateinit var showSyncStatus: ShowSyncStatus
     @Autowired lateinit var listEnrolledPeriods: ListEnrolledPeriods
@@ -84,6 +86,7 @@ class ApiTest : FunSpec() {
     class Mocks {
         @Bean fun userDetailsService(): UserDetailsService = mockk()
         @Bean fun registerStudent(): RegisterStudent = mockk()
+        @Bean fun searchUsers(): SearchUsers = mockk()
         @Bean fun requestSync(): RequestSync = mockk(relaxed = true)
         @Bean fun showSyncStatus(): ShowSyncStatus = mockk()
         @Bean fun listEnrolledPeriods(): ListEnrolledPeriods = mockk()
@@ -387,6 +390,24 @@ class ApiTest : FunSpec() {
                     status { isBadRequest() }
                     jsonPath("$.errors[0].field") { value("message") }
                 }
+        }
+
+        test("lets admins search users a page at a time") {
+            val admin = signedIn(Role.ADMIN)
+            every { searchUsers("ana", PageRequest(0, 20)) } returns Page(listOf(admin), PageRequest(0, 20), 1)
+
+            mockMvc.get("/api/v1/users?query=ana") { bearer(admin) }.andExpect {
+                status { isOk() }
+                jsonPath("$.content[0].id") { value(externalId.toString()) }
+                jsonPath("$.content[0].fullName") { value("Ana Souza") }
+                jsonPath("$.page.totalElements") { value(1) }
+            }
+        }
+
+        test("forbids students from searching users") {
+            val user = signedIn(Role.STUDENT)
+
+            mockMvc.get("/api/v1/users?query=ana") { bearer(user) }.andExpect { status { isForbidden() } }
         }
 
         test("lets admins notify one user") {

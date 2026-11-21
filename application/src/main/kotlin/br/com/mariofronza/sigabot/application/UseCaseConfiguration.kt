@@ -19,6 +19,7 @@ import br.com.mariofronza.sigabot.usecases.academic.port.EnrollmentRepository
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncObserver
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
 import br.com.mariofronza.sigabot.usecases.identity.RegisterStudent
+import br.com.mariofronza.sigabot.usecases.identity.SearchUsers
 import br.com.mariofronza.sigabot.usecases.identity.port.InstitutionRepository
 import br.com.mariofronza.sigabot.usecases.identity.port.PasswordHasher
 import br.com.mariofronza.sigabot.usecases.identity.port.SecretCipher
@@ -88,6 +89,9 @@ class UseCaseConfiguration {
 
     @Bean
     fun deliverOutbox(outbox: Outbox, pushSender: PushSender, clock: Clock) = DeliverOutbox(outbox, pushSender, clock)
+
+    @Bean
+    fun searchUsers(users: UserRepository) = SearchUsers(users)
 
     @Bean
     fun requestSync(queue: SyncQueue, clock: Clock) = RequestSync(queue, clock)

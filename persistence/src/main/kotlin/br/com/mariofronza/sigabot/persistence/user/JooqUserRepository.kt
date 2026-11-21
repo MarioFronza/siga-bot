@@ -17,6 +17,8 @@ import br.com.mariofronza.sigabot.persistence.jooq.tables.references.ROLES
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.USERS
 import br.com.mariofronza.sigabot.persistence.jooq.tables.references.USER_ROLES
 import br.com.mariofronza.sigabot.usecases.identity.port.UserRepository
+import br.com.mariofronza.sigabot.usecases.shared.Page
+import br.com.mariofronza.sigabot.usecases.shared.PageRequest
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.currentOffsetDateTime
@@ -40,6 +42,11 @@ class JooqUserRepository(
 
     override fun findByEmail(email: Email): User? = fetch(USERS.EMAIL.eq(email.value)).singleOrNull()
 
+    override fun search(query: String, request: PageRequest): Page<User> {
+        val matches = USERS.EMAIL.containsIgnoreCase(query).or(USERS.FULL_NAME.containsIgnoreCase(query))
+        return Page(fetch(matches, request), request, dsl.fetchCount(USERS, matches).toLong())
+    }
+
     override fun existsByLoginDigest(institution: InstitutionCode, loginDigest: ByteArray): Boolean =
         dsl.fetchExists(
             ACADEMIC_ACCOUNTS,
@@ -51,7 +58,7 @@ class JooqUserRepository(
         return user
     }
 
-    private fun fetch(condition: Condition): List<User> =
+    private fun fetch(condition: Condition, page: PageRequest? = null): List<User> =
         dsl.select(
             USERS,
             multiset(
@@ -78,7 +85,9 @@ class JooqUserRepository(
         )
             .from(USERS)
             .where(condition)
-            .orderBy(USERS.ID)
+            .orderBy(USERS.FULL_NAME, USERS.EMAIL)
+            .limit(page?.size ?: Int.MAX_VALUE)
+            .offset(page?.offset ?: 0)
             .fetch { (row, roles, accounts) ->
                 User(
                     id = UserId(row.notNull(USERS.EXTERNAL_ID)),

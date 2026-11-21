@@ -1,5 +1,6 @@
 package br.com.mariofronza.sigabot.usecases.academic
 
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncFailureReason
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncObserver
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
@@ -64,7 +65,7 @@ class RunDueSyncs(
         } catch (e: Exception) {
             logger.warn("Sync failed for user {} (attempt {})", job.userId, job.attempts + 1, e)
             observer.failed(e)
-            queue.failed(job.userId, e.message ?: e.javaClass.simpleName, clock.instant().plus(retryDelay(job.attempts + 1)))
+            queue.failed(job.userId, SyncFailureReason.of(e), clock.instant().plus(retryDelay(job.attempts + 1)))
         }
     }
 

@@ -14,7 +14,7 @@ interface SyncQueue {
 
     fun completed(userId: UserId, syncedAt: Instant, nextRunAt: Instant, fulfilled: SyncScope?)
 
-    fun failed(userId: UserId, error: String, retryAt: Instant)
+    fun failed(userId: UserId, reason: SyncFailureReason, retryAt: Instant)
 
     fun countDue(now: Instant): Long
 
@@ -29,5 +29,22 @@ data class SyncStatus(
     val running: Boolean,
     val pending: Boolean,
     val attempts: Int,
-    val lastError: String?,
+    val lastErrorReason: SyncFailureReason?,
 )
+
+enum class SyncFailureReason {
+    INVALID_CREDENTIAL,
+    SIGA_UNAVAILABLE,
+    SIGA_CHANGED,
+    UNKNOWN,
+    ;
+
+    companion object {
+        fun of(error: Throwable) = when (error) {
+            is SigaCredentialRejectedException -> INVALID_CREDENTIAL
+            is SigaUnavailableException -> SIGA_UNAVAILABLE
+            is SigaLayoutChangedException -> SIGA_CHANGED
+            else -> UNKNOWN
+        }
+    }
+}

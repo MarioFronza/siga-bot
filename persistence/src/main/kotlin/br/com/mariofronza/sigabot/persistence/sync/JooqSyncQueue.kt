@@ -7,6 +7,7 @@ import br.com.mariofronza.sigabot.persistence.notNull
 import br.com.mariofronza.sigabot.persistence.user.userKey
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
 import br.com.mariofronza.sigabot.entity.term.AcademicPeriod
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncFailureReason
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncScope
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncStatus
@@ -75,17 +76,17 @@ class JooqSyncQueue(
             .set(SYNC_JOBS.REQUESTED_SCOPE, `when`(requestedMeanwhile, SYNC_JOBS.REQUESTED_SCOPE).otherwise(castNull(SYNC_JOBS.REQUESTED_SCOPE)))
             .setNull(SYNC_JOBS.LOCKED_UNTIL)
             .set(SYNC_JOBS.ATTEMPTS, 0)
-            .setNull(SYNC_JOBS.LAST_ERROR)
+            .setNull(SYNC_JOBS.LAST_ERROR_REASON)
             .where(SYNC_JOBS.USER_ID.eq(userKey(userId)))
             .execute()
     }
 
-    override fun failed(userId: UserId, error: String, retryAt: Instant) {
+    override fun failed(userId: UserId, reason: SyncFailureReason, retryAt: Instant) {
         dsl.update(SYNC_JOBS)
             .set(SYNC_JOBS.NEXT_RUN_AT, retryAt.utc())
             .setNull(SYNC_JOBS.LOCKED_UNTIL)
             .set(SYNC_JOBS.ATTEMPTS, SYNC_JOBS.ATTEMPTS.plus(1))
-            .set(SYNC_JOBS.LAST_ERROR, error)
+            .set(SYNC_JOBS.LAST_ERROR_REASON, reason.name)
             .setNull(SYNC_JOBS.REQUESTED_SCOPE)
             .where(SYNC_JOBS.USER_ID.eq(userKey(userId)))
             .execute()
@@ -104,7 +105,7 @@ class JooqSyncQueue(
                     running = it.lockedUntil?.toInstant()?.isAfter(now) ?: false,
                     pending = it.requestedScope != null,
                     attempts = it.notNull(SYNC_JOBS.ATTEMPTS),
-                    lastError = it.lastError,
+                    lastErrorReason = it.lastErrorReason?.let(SyncFailureReason::valueOf),
                 )
             }
 

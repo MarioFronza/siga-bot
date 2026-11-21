@@ -5,6 +5,7 @@ import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.User
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
+import br.com.mariofronza.sigabot.usecases.academic.port.SyncFailureReason
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncObserver
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncQueue
@@ -74,7 +75,7 @@ class RunDueSyncsTest : FunSpec({
 
         runDueSyncs().use { it(SyncScope.Latest) }
 
-        verify { queue.failed(ana.id, "SIGA did not answer", now.plus(Duration.ofMinutes(20))) }
+        verify { queue.failed(ana.id, SyncFailureReason.SIGA_UNAVAILABLE, now.plus(Duration.ofMinutes(20))) }
         verify { queue.completed(bia.id, any(), any(), any()) }
         verify { observer.failed(any<SigaUnavailableException>()) }
     }

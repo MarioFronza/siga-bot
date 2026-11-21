@@ -34,7 +34,10 @@ class JooqSyncQueue(
             .set(SYNC_JOBS.USER_ID, userKey(userId))
             .set(SYNC_JOBS.NEXT_RUN_AT, runAt.utc())
             .onConflict(SYNC_JOBS.USER_ID)
-            .doUpdate().set(SYNC_JOBS.NEXT_RUN_AT, excluded(SYNC_JOBS.NEXT_RUN_AT))
+            .doUpdate()
+            .set(SYNC_JOBS.NEXT_RUN_AT, excluded(SYNC_JOBS.NEXT_RUN_AT))
+            .set(SYNC_JOBS.ATTEMPTS, 0)
+            .setNull(SYNC_JOBS.LAST_ERROR_REASON)
             .execute()
     }
 
@@ -47,6 +50,7 @@ class JooqSyncQueue(
             .doUpdate()
             .set(SYNC_JOBS.NEXT_RUN_AT, excluded(SYNC_JOBS.NEXT_RUN_AT))
             .set(SYNC_JOBS.REQUESTED_SCOPE, excluded(SYNC_JOBS.REQUESTED_SCOPE))
+            .where(notPaused)
             .execute()
     }
 
@@ -92,6 +96,16 @@ class JooqSyncQueue(
             .execute()
     }
 
+    override fun credentialRejected(userId: UserId) {
+        dsl.update(SYNC_JOBS)
+            .setNull(SYNC_JOBS.LOCKED_UNTIL)
+            .set(SYNC_JOBS.ATTEMPTS, SYNC_JOBS.ATTEMPTS.plus(1))
+            .set(SYNC_JOBS.LAST_ERROR_REASON, SyncFailureReason.INVALID_CREDENTIAL.name)
+            .setNull(SYNC_JOBS.REQUESTED_SCOPE)
+            .where(SYNC_JOBS.USER_ID.eq(userKey(userId)))
+            .execute()
+    }
+
     override fun countDue(now: Instant): Long =
         dsl.fetchCount(dsl.selectFrom(SYNC_JOBS.join(USERS).on(USERS.ID.eq(SYNC_JOBS.USER_ID))).where(dueAt(now))).toLong()
 
@@ -112,6 +126,9 @@ class JooqSyncQueue(
     private fun dueAt(now: Instant): Condition = SYNC_JOBS.NEXT_RUN_AT.le(now.utc())
         .and(SYNC_JOBS.LOCKED_UNTIL.isNull.or(SYNC_JOBS.LOCKED_UNTIL.lt(now.utc())))
         .and(USERS.ACTIVE.isTrue)
+        .and(notPaused)
+
+    private val notPaused: Condition = SYNC_JOBS.LAST_ERROR_REASON.isDistinctFrom(SyncFailureReason.INVALID_CREDENTIAL.name)
 
     private fun SyncScope.code(): String? = when (this) {
         SyncScope.Everything -> EVERYTHING

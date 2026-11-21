@@ -4,6 +4,7 @@ import br.com.mariofronza.sigabot.entity.institution.InstitutionCode
 import br.com.mariofronza.sigabot.entity.user.AcademicAccount
 import br.com.mariofronza.sigabot.entity.user.Email
 import br.com.mariofronza.sigabot.entity.user.User
+import br.com.mariofronza.sigabot.usecases.academic.port.SigaCredentialRejectedException
 import br.com.mariofronza.sigabot.usecases.academic.port.SigaUnavailableException
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncFailureReason
 import br.com.mariofronza.sigabot.usecases.academic.port.SyncJob
@@ -78,6 +79,16 @@ class RunDueSyncsTest : FunSpec({
         verify { queue.failed(ana.id, SyncFailureReason.SIGA_UNAVAILABLE, now.plus(Duration.ofMinutes(20))) }
         verify { queue.completed(bia.id, any(), any(), any()) }
         verify { observer.failed(any<SigaUnavailableException>()) }
+    }
+
+    test("pauses a student whose SIGA credential was rejected instead of retrying") {
+        every { queue.claimDue(any(), any(), any()) } returns listOf(SyncJob(ana.id, 0))
+        every { syncStudentGrades(ana, any()) } throws SigaCredentialRejectedException()
+
+        runDueSyncs().use { it(SyncScope.Latest) }
+
+        verify { queue.credentialRejected(ana.id) }
+        verify(exactly = 0) { queue.failed(any(), any(), any()) }
     }
 
     test("fills a freed slot while a slow student is still syncing") {

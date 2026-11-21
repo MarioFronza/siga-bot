@@ -38,8 +38,13 @@ class LoginStep : Step1() {
 
         return connection.signIn(extractorContext.url, headers, body)
             .execute()
+            .rejectWhenSentBackToLogin(sessionCookies = ETP_POSITION + 1)
             .updateEndpoint(extractorContext)
-            .updateCookies(extractorContext, ettsPosition = 1, etpPosition = 3)
+            .updateCookies(extractorContext, ettsPosition = 1, etpPosition = ETP_POSITION)
             .getBody()
+    }
+
+    companion object {
+        private const val ETP_POSITION = 3
     }
 }

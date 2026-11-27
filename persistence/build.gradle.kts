@@ -9,12 +9,12 @@ buildscript {
     dependencies {
         classpath("org.testcontainers:testcontainers-postgresql:2.0.5")
         classpath("org.flywaydb:flyway-database-postgresql:12.4.0")
-        classpath("org.postgresql:postgresql:42.7.14")
+        classpath("org.postgresql:postgresql:42.7.15")
     }
 }
 
 plugins {
-    id("org.jooq.jooq-codegen-gradle") version "3.21.9"
+    id("org.jooq.jooq-codegen-gradle") version "3.21.10"
 }
 
 dependencies {
@@ -27,7 +27,7 @@ dependencies {
 
     runtimeOnly("org.postgresql:postgresql")
 
-    jooqCodegen("org.postgresql:postgresql:42.7.14")
+    jooqCodegen("org.postgresql:postgresql:42.7.15")
 
     testImplementation("org.springframework.boot:spring-boot-starter-jooq-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

@@ -8,7 +8,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-data-commons")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("com.auth0:java-jwt:4.6.2")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("io.kotest:kotest-extensions-spring:6.2.7")
